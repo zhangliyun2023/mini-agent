@@ -24,6 +24,11 @@ export interface ToolDefinition {
    * 不提供则按默认截断。
    */
   compact?: (raw: string) => string;
+  /**
+   * 进 trace 前对 args 脱敏（白名单落盘）：用户内容类参数只留长度 / 摘要。
+   * 不提供则 args 原样进 trace。只影响 trace，不影响 handler 收到的参数。
+   */
+  redact?: (args: Record<string, unknown>) => Record<string, unknown>;
 }
 
 export interface ToolSpec {
@@ -51,6 +56,12 @@ export class ToolRegistry {
 
   has(name: string): boolean {
     return this.tools.has(name);
+  }
+
+  /** trace 用：按工具声明脱敏后的 args；未注册或未声明 redact 则原样 */
+  redact(name: string, args: Record<string, unknown>): Record<string, unknown> {
+    const def = this.tools.get(name);
+    return def?.redact ? def.redact(args) : args;
   }
 
   specs(): ToolSpec[] {

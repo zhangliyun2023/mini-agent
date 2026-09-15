@@ -1,0 +1,22 @@
+# 2026-09-14T23:59:02-06:00 node=v24.15.0 commit=955c136 label=v0.2 cmd: npm test -s --
+
+ RUN  v3.2.7 /private/tmp/ma-align5
+
+ ✓ test/unit/machine.test.ts (10 tests) 5ms
+ ✓ test/unit/contracts.test.ts (9 tests) 4ms
+ ✓ test/unit/tools.test.ts (16 tests) 4ms
+ ✓ test/unit/journeys.test.ts (8 tests) 6ms
+ ✓ test/unit/session-context.test.ts (11 tests) 5ms
+ ✓ test/unit/agent-loop.test.ts (11 tests) 5ms
+ ✓ test/unit/generator.test.ts (16 tests) 11ms
+ ✓ test/unit/invariants.test.ts (9 tests) 14ms
+ ✓ test/unit/explore.test.ts (6 tests) 116ms
+ ✓ test/unit/parser.test.ts (10 tests) 2ms
+ ✓ test/unit/docs.test.ts (7 tests) 4ms
+
+ Test Files  11 passed (11)
+      Tests  113 passed (113)
+   Start at  23:59:02
+   Duration  427ms (transform 270ms, setup 0ms, collect 709ms, tests 176ms, environment 1ms, prepare 618ms)
+
+exit 0 (expected 0)

@@ -9,7 +9,7 @@ import { MemoryUserMemoryStore, renderMemory, type UserMemoryStore } from "../me
 import { assembleMessages, compactSession, DEFAULT_CONTEXT, needsCompaction, stripThink, type ContextOptions } from "../session/context.js";
 import { parseAssistantOutput, type ParsedToolCall } from "../protocol/parser.js";
 import { buildSystemPrompt } from "../protocol/prompt.js";
-import { MemoryTraceSink, preview, type Effect, type TraceSink } from "./trace.js";
+import { MemoryTraceSink, newRequestId, preview, type Effect, type TraceSink } from "./trace.js";
 import { interpret } from "../machine/interpreter.js";
 import { TERMINAL_STOPPED_BY, turnMachine, turnRunnerProtocol, type TurnEvent, type TurnMachine, type TurnState } from "../../contracts/turn.machine.js";
 
@@ -116,13 +116,15 @@ export function createAgent(o: AgentOptions) {
     };
 
     /**
-     * 闸：先解释，allowed 才执行 apply 里的副作用；落到终态就在同一条记录里收尾（写历史、存盘、answer 副作用）。
+     * 闸：先解释——allowed 才执行 apply 里的副作用；blocked（rejected 行）只跑 onBlocked（回喂消息，状态不变）；
+     * noop 什么都不跑；落到终态就在同一条记录里收尾（写历史、存盘、answer 副作用）。
      * unknown：不执行任何副作用，记 trace，本轮强制 error 终态（或按配置抛出）。
      */
-    function transition(event: TurnEvent, effects: Effect[], opts: { apply?: () => void; final?: string; error?: string } = {}) {
+    function transition(event: TurnEvent, effects: Effect[], opts: { apply?: () => void; onBlocked?: () => void; final?: string; error?: string } = {}) {
       facts = protocol.advance(facts, event);
       const t = interpret(machine, state, event, facts);
       if (t.status === "allowed") opts.apply?.();
+      if (t.status === "blocked") opts.onBlocked?.();
       const to: TurnState = t.status === "unknown" ? "error" : t.to;
       const all = [...pendingEffects, ...effects];
       pendingEffects = [];
@@ -140,7 +142,7 @@ export function createAgent(o: AgentOptions) {
         result = { answer, steps, stoppedBy, turn, traceId };
       }
       seq += 1;
-      trace.write({ ts: new Date().toISOString(), trace_id: traceId, userId, sessionId, turn, seq, step: facts.step, from: state, to, event, status: t.status, reason: t.reason, effects: all });
+      trace.write({ ts: new Date().toISOString(), trace_id: traceId, feature: machine.feature, userId, sessionId, turn, seq, step: facts.step, from: state, to, event, status: t.status, reason: t.reason, reject_code: t.reject_code, transition: t.row?.id ?? null, effects: all });
       if (t.status === "unknown" && unknownTransition === "throw") throw new Error(`未建模的状态转移：${state} + ${event}（${t.reason}）`);
       state = to;
       return t;
@@ -151,17 +153,18 @@ export function createAgent(o: AgentOptions) {
         const messages = assembleMessages(systemPrompt, session, working);
         const t0 = Date.now();
         const step = facts.step + 1;
+        const request_id = newRequestId();
         let res: LLMResponse;
         let attempts: number;
         try {
           ({ res, attempts } = await callLLM(messages));
         } catch (e) {
           const msg = (e as Error).message ?? String(e);
-          transition("LLM_FAILED", [{ kind: "llm", step, model: o.llm.model, messages: messages.length, attempts: (e as { attempts?: number }).attempts ?? llmRetries + 1, durationMs: Date.now() - t0, outputPreview: "", error: msg }], { error: `模型调用失败：${msg}` });
+          transition("LLM_FAILED", [{ kind: "llm", request_id, step, model: o.llm.model, messages: messages.length, attempts: (e as { attempts?: number }).attempts ?? llmRetries + 1, durationMs: Date.now() - t0, outputPreview: "", error: msg }], { error: `模型调用失败：${msg}` });
           continue;
         }
         const text = res.text;
-        transition("LLM_OK", [{ kind: "llm", step, model: o.llm.model, messages: messages.length, attempts, promptTokens: res.usage?.promptTokens, completionTokens: res.usage?.completionTokens, durationMs: Date.now() - t0, outputPreview: preview(text) }]);
+        transition("LLM_OK", [{ kind: "llm", request_id, step, model: o.llm.model, messages: messages.length, attempts, promptTokens: res.usage?.promptTokens, completionTokens: res.usage?.completionTokens, durationMs: Date.now() - t0, outputPreview: preview(text) }]);
         if (state !== "deciding") continue;
         steps.push({ kind: "llm", detail: preview(text) });
 
@@ -171,9 +174,10 @@ export function createAgent(o: AgentOptions) {
           if (parsed.final !== undefined) {
             transition("PARSED_FINAL", [parseEffect], { final: parsed.final });
           } else {
-            // 没有工具调用也没有 final：只能是解析错误，把错误回喂让模型重来（allowed 才回喂）
+            // 没有工具调用也没有 final：只能是解析错误。表里这是 rejected 行 → blocked，回喂放在 onBlocked 里；
+            // 步数用尽时命中的是无守卫兜底行（allowed → max_steps），不回喂
             transition("PARSED_ERROR", [parseEffect], {
-              apply: () => {
+              onBlocked: () => {
                 working.push({ role: "assistant", content: text });
                 working.push({ role: "tool", name: "parser", toolCallId: `parse-${step}`, content: `你的上一条输出无法解析：${parsed.errors.join("；")}。请按协议重新输出。` });
               },
@@ -196,11 +200,12 @@ export function createAgent(o: AgentOptions) {
         // 工具只在这个状态里跑；进到这里的唯一通道是 allowed 的 PARSED_TOOL_CALLS（P0 不变量 ①）
         const effects: Effect[] = [];
         for (const [i, call] of pendingCalls.entries()) {
+          const request_id = newRequestId();
           const r = await tools.invoke(call.name, call.arguments, toolCtx);
           const content = r.ok ? r.content : `[error] ${r.content}`;
           working.push({ role: "tool", name: call.name, toolCallId: `${facts.step}-${i}`, content });
           steps.push({ kind: "tool", detail: `${call.name} ${r.ok ? "ok" : "fail"}` });
-          effects.push({ kind: "tool", step: facts.step, name: call.name, args: call.arguments, ok: r.ok, durationMs: r.durationMs, resultPreview: preview(r.content) });
+          effects.push({ kind: "tool", request_id, step: facts.step, name: call.name, args: tools.redact(call.name, call.arguments), ok: r.ok, durationMs: r.durationMs, resultPreview: preview(r.content) });
         }
         pendingCalls = [];
         transition("TOOLS_DONE", effects);

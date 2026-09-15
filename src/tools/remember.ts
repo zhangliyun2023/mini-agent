@@ -16,7 +16,10 @@ export function createRememberTool(store: UserMemoryStore): ToolDefinition {
     },
     handler: async ({ key, value }, ctx) => {
       store.set(ctx.userId, key, value);
-      return `已记住 ${key} = ${value}`;
+      // 不回显 value：工具结果会进 trace 的 resultPreview，用户内容只留长度
+      return `已记住 ${key}（${String(value).length} 字）`;
     },
+    // value 是用户内容，trace 里只留长度（拍板③：answer 全文是唯一显式例外，工具 args 走白名单）
+    redact: ({ key, value }) => ({ key, value_len: String(value ?? "").length }),
   };
 }

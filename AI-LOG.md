@@ -17,6 +17,7 @@
 | 标签别名 | 模型把 `<tool_call>` 写成 Anthropic 风格的 `<invoke>` 或 `<function_call>` | 解析器接受别名并记 warning 进 trace；system prompt 加一条「标签名必须是 tool_call」 |
 | 口头「记下了」 | 用户说「记住…」时模型只在 final 里说「已记下」，不调 remember | system prompt 加规则「没有调用就不算记住，不要口头说已记下」+ 一个 one-shot 示例 |
 | 外层包裹 | 工具调用外面多套一层 `<tool_code>` | 解析器用全局匹配抓内层 `<tool_call>`，外层忽略 |
+| 第四种标签变体（2026-09-15 live 暴露，issue #4） | 原生 function calling 模式下模型没走 `tool_calls`，直接输出 `<function=calculator><parameter=expression>99*99</parameter></function>` | **未修**：解析器不认、当成 final，live「原生 function calling」场景偶发失败。处置留在 issue #4；本轮（#5）不动解析器，报告里按「已知问题」写 |
 
 ## 3. 状态机线（2026-09-15，本次）
 

@@ -1,0 +1,17 @@
+# 2026-09-14T23:59:03-06:00 node=v24.15.0 commit=955c136 label=v0.2 cmd: npm run -s test:live
+
+ RUN  v3.2.7 /private/tmp/ma-align5
+
+ ✓ test/live/live.test.ts (5 tests) 18447ms
+   ✓ 真实模型（文本协议） > 需要精确计算时调用 calculator，答案含正确结果  2475ms
+   ✓ 真实模型（文本协议） > 搜索 + 纯对话追问：第二问不重复搜索也能答  3369ms
+   ✓ 真实模型（文本协议） > 带工具的追问：加两条待办后「把第一条标完成」作用在同一清单上；另一个窗口看不到  7392ms
+   ✓ 真实模型（文本协议） > 模型主动 remember 后，新 session 能用上这条记忆  3380ms
+   ✓ 真实模型（原生 function calling 适配器） > 同一 runtime 换成原生模式也能完成工具调用  1829ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  23:59:03
+   Duration  18.67s (transform 40ms, setup 0ms, collect 73ms, tests 18.45s, environment 0ms, prepare 30ms)
+
+exit 0 (expected 0)

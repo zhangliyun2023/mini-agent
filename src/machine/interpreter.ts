@@ -5,15 +5,22 @@
 //   - reachable：从某状态出发沿 allowed 行 BFS，给出可达状态/行与不可达项
 //   - toContract：同一张表永远产出同一份 JSON（无时间戳、无函数），漂移测试对它
 
+/** 行级：表里怎么写 */
 export type Kind = "allowed" | "rejected" | "noop" | "unknown";
+/** 判定级：interpret 怎么答。rejected 行命中 → blocked */
+export type Verdict = "allowed" | "blocked" | "noop" | "unknown";
 
 export interface Row<S extends string = string, E extends string = string> {
+  /** 行的显式 id（`t-llm-ok` 风格），定义期查重；trace 记录与答案卷都用它，改 reason 不会漂 */
+  id: string;
   from: S;
   event: E;
   to: S;
   kind: Kind;
   /** 守卫名，需在 machine.guards 里有对应函数；同格多行按定义顺序取首条命中 */
   guard?: string;
+  /** rejected 行必填：被拦下的机器可读原因（如 PARSE_ERROR），进 trace 的 reject_code */
+  reject_code?: string;
   reason?: string;
   priority?: "P0" | "P1" | "P2";
   /** 手写测试位置：`test/unit/<file>::<测试名>` */
@@ -29,6 +36,8 @@ export interface Invariant {
   status: "enforced" | "planned";
   /** enforced 时必填：`<file>::<symbol>`，契约测试会到盘上找 */
   evidence?: string[];
+  /** planned 时必填：为什么还没 enforced、现在靠什么观察 */
+  note?: string;
 }
 
 export interface MachineDef<S extends string, E extends string, F = unknown> {
@@ -53,11 +62,13 @@ export interface Machine<S extends string, E extends string, F = unknown> extend
 }
 
 export interface Interpretation<S extends string, E extends string> {
-  status: Kind;
+  status: Verdict;
   from: S;
   to: S;
   event: E;
   reason?: string;
+  /** blocked 时 = 行的 reject_code */
+  reject_code?: string;
   /** 命中的行；unknown 且未列时为空 */
   row?: Row<S, E>;
 }
@@ -79,7 +90,8 @@ export interface Reachability<S extends string, E extends string> {
 
 export class MachineDefinitionError extends Error {}
 
-export function rowId(row: Row): string {
+/** 可读的格签名 `from --EVENT[guard]--> to`：只作文档与报错，不是行的身份（身份是 row.id） */
+export function rowSignature(row: Row): string {
   return `${row.from} --${row.event}${row.guard ? `[${row.guard}]` : ""}--> ${row.to}`;
 }
 
@@ -98,14 +110,19 @@ export function defineMachine<S extends string, E extends string, F = unknown>(d
 
   const seenGuardless = new Set<string>();
   const seenGuards = new Set<string>();
+  const seenIds = new Set<string>();
   for (const row of def.rows) {
-    const id = rowId(row);
+    const id = rowSignature(row);
+    if (typeof row.id !== "string" || !row.id.trim()) fail(`行 ${id}：缺少显式 id`);
+    if (seenIds.has(row.id)) fail(`行 ${id}：id "${row.id}" 重复`);
+    seenIds.add(row.id);
     if (!def.states.includes(row.from)) fail(`行 ${id}：from 不在 states 里`);
     if (!def.states.includes(row.to)) fail(`行 ${id}：to 不在 states 里`);
     if (!def.events.includes(row.event)) fail(`行 ${id}：event 不在 events 里`);
     if (def.terminal.includes(row.from)) fail(`行 ${id}：终态不能有出边`);
     if (row.guard !== undefined && typeof guards[row.guard] !== "function") fail(`行 ${id}：guard "${row.guard}" 未定义`);
     if (row.kind !== "allowed" && row.to !== row.from) fail(`行 ${id}：${row.kind} 行不能改变状态（to 必须等于 from）`);
+    if (row.kind === "rejected" && !row.reject_code) fail(`行 ${id}：rejected 行必须带 reject_code`);
     const cellKey = `${row.from}|${row.event}`;
     if (seenGuardless.has(cellKey)) fail(`行 ${id}：同格已有无守卫行在前，此行永远不可达`);
     if (row.guard === undefined) seenGuardless.add(cellKey);
@@ -118,6 +135,7 @@ export function defineMachine<S extends string, E extends string, F = unknown>(d
   }
   for (const inv of def.invariants ?? []) {
     if (inv.status === "enforced" && !(inv.evidence && inv.evidence.length)) fail(`不变量 ${inv.id}：enforced 必须带 evidence`);
+    if (inv.status === "planned" && !(inv.note && inv.note.trim())) fail(`不变量 ${inv.id}：planned 必须带 note（为什么还没 enforced、现在靠什么观察）`);
     for (const e of inv.evidence ?? []) if (!/^[^:]+::.+$/.test(e)) fail(`不变量 ${inv.id}：evidence "${e}" 应为 <file>::<symbol>`);
   }
 
@@ -138,7 +156,7 @@ export function interpret<S extends string, E extends string, F>(m: Machine<S, E
   const rows = m.cell(state, event);
   for (const row of rows) {
     if (row.guard === undefined || m.guards[row.guard](facts)) {
-      return { status: row.kind, from: state, to: row.to, event, reason: row.reason, row };
+      return { status: row.kind === "rejected" ? "blocked" : row.kind, from: state, to: row.to, event, reason: row.reason, reject_code: row.reject_code, row };
     }
   }
   return {
@@ -196,17 +214,19 @@ export interface Contract {
   guards: string[];
   rows: Array<{
     id: string;
+    signature: string;
     from: string;
     event: string;
     guard: string | null;
     to: string;
     kind: Kind;
+    reject_code: string | null;
     reason: string | null;
     priority: string | null;
     covered_by: string[];
     effects: string[];
   }>;
-  invariants: Array<{ id: string; text: string; priority: string; status: string; evidence: string[] }>;
+  invariants: Array<{ id: string; text: string; priority: string; status: string; evidence: string[]; note: string | null }>;
   cells: { total: number; listed: number; declared_unknown: string[]; unlisted: string[] };
   reachable: { states: string[]; unreachable_states: string[]; unreachable_rows: string[] };
 }
@@ -224,28 +244,30 @@ export function toContract<S extends string, E extends string, F>(m: Machine<S, 
     events: [...m.events],
     guards: Object.keys(m.guards),
     rows: m.rows.map((row) => ({
-      id: rowId(row),
+      id: row.id,
+      signature: rowSignature(row),
       from: row.from,
       event: row.event,
       guard: row.guard ?? null,
       to: row.to,
       kind: row.kind,
+      reject_code: row.reject_code ?? null,
       reason: row.reason ?? null,
       priority: row.priority ?? null,
       covered_by: [...(row.covered_by ?? [])],
       effects: [...(row.effects ?? [])],
     })),
-    invariants: m.invariants.map((i) => ({ id: i.id, text: i.text, priority: i.priority, status: i.status, evidence: [...(i.evidence ?? [])] })),
+    invariants: m.invariants.map((i) => ({ id: i.id, text: i.text, priority: i.priority, status: i.status, evidence: [...(i.evidence ?? [])], note: i.note ?? null })),
     cells: {
       total: cells.length,
       listed: cells.filter((c) => c.listed).length,
-      declared_unknown: m.rows.filter((row) => row.kind === "unknown").map(rowId),
+      declared_unknown: m.rows.filter((row) => row.kind === "unknown").map(rowSignature),
       unlisted: cells.filter((c) => !c.listed).map((c) => `${c.from} + ${c.event}`),
     },
     reachable: {
       states: r.states,
       unreachable_states: r.unreachableStates,
-      unreachable_rows: r.unreachableRows.map(rowId),
+      unreachable_rows: r.unreachableRows.map(rowSignature),
     },
   };
 }

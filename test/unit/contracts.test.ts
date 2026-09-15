@@ -65,7 +65,7 @@ describe("session / session-runtime 表（只建表，不接代码）", () => {
   it("session-runtime：busy 时的 INPUT / ASYNC_DONE 在契约里标为 declared_unknown，诚实可见", () => {
     const c = toContract(sessionRuntimeMachine);
     expect(c.cells.declared_unknown).toEqual(expect.arrayContaining(["busy --INPUT--> busy", "busy --ASYNC_DONE--> busy"]));
-    expect(c.rows.find((r) => r.id === "busy --INPUT--> busy")?.kind).toBe("unknown");
+    expect(c.rows.find((r) => r.id === "sr-input-while-busy")).toMatchObject({ kind: "unknown", signature: "busy --INPUT--> busy" });
     expect(reachable(sessionRuntimeMachine).unreachableStates).toEqual([]);
   });
   it("session：new → active → compacting 三态全可达，rejected / noop 行各至少一条", () => {

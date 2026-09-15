@@ -15,12 +15,12 @@ function sample() {
     events: ["GO", "STAY", "STOP", "NEVER"],
     guards: { small: (f) => f.n < 3, big: (f) => f.n >= 3 },
     rows: [
-      { from: "a", event: "GO", to: "b", kind: "allowed", guard: "small", reason: "小走 b" },
-      { from: "a", event: "GO", to: "c", kind: "allowed", guard: "big", reason: "大走 c" },
-      { from: "a", event: "STAY", to: "a", kind: "noop", reason: "原地" },
-      { from: "b", event: "STOP", to: "end", kind: "allowed" },
-      { from: "b", event: "STAY", to: "b", kind: "rejected", reason: "b 不接受 STAY" },
-      { from: "c", event: "NEVER", to: "c", kind: "unknown", reason: "诚实声明：c 收到 NEVER 未建模" },
+      { id: "r-go-small", from: "a", event: "GO", to: "b", kind: "allowed", guard: "small", reason: "小走 b" },
+      { id: "r-go-big", from: "a", event: "GO", to: "c", kind: "allowed", guard: "big", reason: "大走 c" },
+      { id: "r-stay", from: "a", event: "STAY", to: "a", kind: "noop", reason: "原地" },
+      { id: "r-stop", from: "b", event: "STOP", to: "end", kind: "allowed" },
+      { id: "r-b-stay", from: "b", event: "STAY", to: "b", kind: "rejected", reject_code: "B_NO_STAY", reason: "b 不接受 STAY" },
+      { id: "r-never", from: "c", event: "NEVER", to: "c", kind: "unknown", reason: "诚实声明：c 收到 NEVER 未建模" },
     ],
   });
 }
@@ -52,43 +52,69 @@ describe("S0 状态表解释器", () => {
       feature: "both", anchor: "t", initial: "a", states: ["a", "b", "c", "end"], terminal: ["end"], events: ["GO", "STAY", "STOP", "NEVER"],
       guards: { t1: () => true, t2: () => true },
       rows: [
-        { from: "a", event: "GO", to: "c", kind: "allowed", guard: "t2" },
-        { from: "a", event: "GO", to: "b", kind: "allowed", guard: "t1" },
+        { id: "x1", from: "a", event: "GO", to: "c", kind: "allowed", guard: "t2" },
+        { id: "x2", from: "a", event: "GO", to: "b", kind: "allowed", guard: "t1" },
       ],
     });
     expect(interpret(both, "a", "GO", { n: 0 }).to).toBe("c");
     const none = defineMachine<S, E, F>({
       feature: "none", anchor: "t", initial: "a", states: ["a", "b", "c", "end"], terminal: ["end"], events: ["GO", "STAY", "STOP", "NEVER"],
       guards: { f: () => false },
-      rows: [{ from: "a", event: "GO", to: "b", kind: "allowed", guard: "f" }],
+      rows: [{ id: "x3", from: "a", event: "GO", to: "b", kind: "allowed", guard: "f" }],
     });
     expect(interpret(none, "a", "GO", { n: 0 })).toMatchObject({ status: "unknown", to: "a" });
     expect(interpret(none, "a", "GO", { n: 0 }).reason).toMatch(/守卫均未命中/);
   });
 
-  it("rejected / noop 行返回对应 status 且不改状态", () => {
+  it("rejected / noop 行返回对应 status 且不改状态：rejected 行的 verdict 是 blocked，并带 reject_code", () => {
     const m = sample();
     expect(interpret(m, "a", "STAY", { n: 0 })).toMatchObject({ status: "noop", to: "a" });
-    expect(interpret(m, "b", "STAY", { n: 0 })).toMatchObject({ status: "rejected", to: "b", reason: "b 不接受 STAY" });
+    expect(interpret(m, "b", "STAY", { n: 0 })).toMatchObject({ status: "blocked", to: "b", reason: "b 不接受 STAY", reject_code: "B_NO_STAY" });
+    expect(interpret(m, "b", "STAY", { n: 0 }).row?.kind).toBe("rejected");
+    expect(toContract(m).rows.find((r) => r.id === "r-b-stay")).toMatchObject({ kind: "rejected", reject_code: "B_NO_STAY" });
   });
 
   it("定义期校验：终态出边 / 未知守卫 / 无守卫行挡住后面的行 / 非 allowed 行改状态 都在定义时报错", () => {
     const base = { feature: "bad", anchor: "t", initial: "a" as S, states: ["a", "b", "c", "end"] as S[], terminal: ["end"] as S[], events: ["GO", "STAY", "STOP", "NEVER"] as E[] };
-    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ from: "end", event: "GO", to: "a", kind: "allowed" }] })).toThrow(MachineDefinitionError);
-    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ from: "a", event: "GO", to: "b", kind: "allowed", guard: "nope" }] })).toThrow(/guard "nope" 未定义/);
+    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ id: "x4", from: "end", event: "GO", to: "a", kind: "allowed" }] })).toThrow(MachineDefinitionError);
+    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ id: "x5", from: "a", event: "GO", to: "b", kind: "allowed", guard: "nope" }] })).toThrow(/guard "nope" 未定义/);
     expect(() =>
       defineMachine<S, E, F>({
         ...base,
         guards: { g: () => true },
         rows: [
-          { from: "a", event: "GO", to: "b", kind: "allowed" },
-          { from: "a", event: "GO", to: "c", kind: "allowed", guard: "g" },
+          { id: "x6", from: "a", event: "GO", to: "b", kind: "allowed" },
+          { id: "x7", from: "a", event: "GO", to: "c", kind: "allowed", guard: "g" },
         ],
       }),
     ).toThrow(/永远不可达/);
-    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ from: "a", event: "GO", to: "b", kind: "rejected" }] })).toThrow(/不能改变状态/);
-    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ from: "a", event: "GO", to: "b", kind: "allowed", covered_by: ["no-separator"] }] })).toThrow(/covered_by/);
+    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ id: "x8", from: "a", event: "GO", to: "b", kind: "rejected", reject_code: "X" }] })).toThrow(/不能改变状态/);
+    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ id: "x8b", from: "a", event: "GO", to: "a", kind: "rejected" }] })).toThrow(/reject_code/);
+    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ id: "x9", from: "a", event: "GO", to: "b", kind: "allowed", covered_by: ["no-separator"] }] })).toThrow(/covered_by/);
     expect(() => defineMachine<S, E, F>({ ...base, rows: [], invariants: [{ id: "x", text: "t", priority: "P0", status: "enforced" }] })).toThrow(/evidence/);
+  });
+
+  it("A1：行 id 必填且定义期查重；契约行的 id 就是显式 id，signature 是可读格", () => {
+    const base = { feature: "ids", anchor: "t", initial: "a" as S, states: ["a", "b", "c", "end"] as S[], terminal: ["end"] as S[], events: ["GO", "STAY", "STOP", "NEVER"] as E[] };
+    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ from: "a", event: "GO", to: "b", kind: "allowed" } as any] })).toThrow(/id/);
+    expect(() =>
+      defineMachine<S, E, F>({
+        ...base,
+        rows: [
+          { id: "dup", from: "a", event: "GO", to: "b", kind: "allowed" },
+          { id: "dup", from: "b", event: "STOP", to: "end", kind: "allowed" },
+        ],
+      }),
+    ).toThrow(/重复.*dup|dup.*重复/);
+    const c = toContract(sample());
+    expect(c.rows[0]).toMatchObject({ id: "r-go-small", signature: "a --GO[small]--> b" });
+  });
+
+  it("A4：planned 不变量必须带 note（为什么还没 enforced / 谁在观察），缺 note 定义时抛；契约里 note 可见", () => {
+    const base = { feature: "inv", anchor: "t", initial: "a" as S, states: ["a", "b", "c", "end"] as S[], terminal: ["end"] as S[], events: ["GO", "STAY", "STOP", "NEVER"] as E[], rows: [] };
+    expect(() => defineMachine<S, E, F>({ ...base, invariants: [{ id: "p", text: "t", priority: "P1", status: "planned" }] })).toThrow(/planned.*note|note.*planned/);
+    const ok = defineMachine<S, E, F>({ ...base, invariants: [{ id: "p", text: "t", priority: "P1", status: "planned", note: "只靠 prompt 规则，live 场景观察" }] });
+    expect(toContract(ok).invariants[0]).toMatchObject({ id: "p", status: "planned", note: "只靠 prompt 规则，live 场景观察" });
   });
 
   it("enumerate 列出全表：状态 × 事件 每格一条，未列格 listed=false", () => {
@@ -105,10 +131,10 @@ describe("S0 状态表解释器", () => {
     const m = defineMachine<S, E, F>({
       feature: "r", anchor: "t", initial: "a", states: ["a", "b", "c", "end"], terminal: ["end"], events: ["GO", "STAY", "STOP", "NEVER"],
       rows: [
-        { from: "a", event: "GO", to: "b", kind: "allowed" },
-        { from: "b", event: "STOP", to: "end", kind: "allowed" },
-        { from: "b", event: "STAY", to: "b", kind: "rejected" },
-        { from: "c", event: "GO", to: "end", kind: "allowed" },
+        { id: "x10", from: "a", event: "GO", to: "b", kind: "allowed" },
+        { id: "x11", from: "b", event: "STOP", to: "end", kind: "allowed" },
+        { id: "x12", from: "b", event: "STAY", to: "b", kind: "rejected", reject_code: "NO" },
+        { id: "x13", from: "c", event: "GO", to: "end", kind: "allowed" },
       ],
     });
     const r = reachable(m);
@@ -130,6 +156,6 @@ describe("S0 状态表解释器", () => {
     expect(c.cells.listed).toBe(5);
     expect(c.cells.declared_unknown).toEqual(["c --NEVER--> c"]);
     expect(c.cells.unlisted).toContain("b + GO");
-    expect(c.rows[0]).toMatchObject({ id: "a --GO[small]--> b", guard: "small", kind: "allowed", covered_by: [] });
+    expect(c.rows[0]).toMatchObject({ id: "r-go-small", signature: "a --GO[small]--> b", guard: "small", kind: "allowed", covered_by: [] });
   });
 });

@@ -18,14 +18,16 @@ npm run chat -- --user A --session w1
 ## 验证
 
 ```bash
-npm test                 # 89 条单测，不需要 key
+npm test                 # 全部单测，不需要 key（条数见 docs/evidence/<label>/2-unit.txt）
 npm run check            # typecheck + 契约漂移检查 + 单测
 npm run test:live        # 真实模型 5 个 smoke，需要 key
+bash scripts/gate.sh v0.2   # 一键门禁，证据落 docs/evidence/v0.2/（无 key 时 live 写 skipped）
 ```
 
 ## 指路
 
-- 入口与代码地图：`AGENTS.md`
+- 入口（七章节）：`AGENTS.md`
+- 架构与机器清单：`docs/ARCHITECTURE.md`
 - 规格与用户故事：`docs/SPEC.md`
 - 状态机线的决定：`docs/product/SPEC-state-machines.md`
 - 测试报告（三层分开写）：`docs/TEST_REPORT.md`

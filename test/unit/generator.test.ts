@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { generatePaths } from "../../src/machine/generator.js";
-import { rowId } from "../../src/machine/interpreter.js";
+import { defineMachine } from "../../src/machine/interpreter.js";
 import { turnMachine, turnRunnerProtocol, TERMINAL_STOPPED_BY, type TurnEvent } from "../../contracts/turn.machine.js";
 import { FakeLLM } from "../../src/llm/fake.js";
 import { createAgent } from "../../src/runtime/agent.js";
@@ -38,11 +38,11 @@ describe("生成器", () => {
   });
 
   it("生成路径走过的行集合 == 全表行集合（每一行都被某条生成路径走到）", () => {
-    expect(gen.rowsUsed).toEqual(turnMachine.rows.map(rowId));
+    expect(gen.rowsUsed).toEqual(turnMachine.rows.map((r) => r.id));
   });
 
   it("生成集合 ⊆ 手写覆盖：生成路径走过的每一行都有 covered_by，且指向的手写测试在盘上", () => {
-    const covered = new Map(turnMachine.rows.map((r) => [rowId(r), r.covered_by ?? []]));
+    const covered = new Map(turnMachine.rows.map((r) => [r.id, r.covered_by ?? []]));
     const missing = gen.rowsUsed.filter((id) => (covered.get(id) ?? []).length === 0);
     expect(missing).toEqual([]);
     const notOnDisk = gen.rowsUsed.flatMap((id) => covered.get(id)!).filter((ref) => {
@@ -53,6 +53,21 @@ describe("生成器", () => {
   });
 });
 
+describe("答案卷 = 行 id 序列（A1）", () => {
+  it("每条路径的 expected 是行 id 序列：LLM_FAILED 一步就是 [t-llm-failed]；直接 final 是 [t-llm-ok, t-final]", () => {
+    const failed = gen.paths.find((p) => p.events.join(",") === "LLM_FAILED")!;
+    expect(failed.expected).toEqual(["t-llm-failed"]);
+    const direct = gen.paths.find((p) => p.events.join(",") === "LLM_OK,PARSED_FINAL")!;
+    expect(direct.expected).toEqual(["t-llm-ok [noop]", "t-final"]);
+  });
+
+  it("改某行 reason 不引起答案卷漂移：同一路径集合、同一 expected", () => {
+    const reworded = defineMachine({ ...turnMachine, rows: turnMachine.rows.map((r) => (r.id === "t-final" ? { ...r, reason: "措辞改了，语义没改" } : r)) });
+    const again = generatePaths(reworded, { ...turnRunnerProtocol, initialFacts: () => turnRunnerProtocol.initialFacts(MAX_STEPS) });
+    expect(again.paths.map((p) => p.expected)).toEqual(gen.paths.map((p) => p.expected));
+  });
+});
+
 describe("生成路径逐条真跑：trace 转移序列 == 答案卷", () => {
   it.each(gen.paths.map((p) => [p.id, p] as const))("%s", async (_id, path) => {
     const llm = new FakeLLM(scriptFor(path.events));
@@ -60,6 +75,6 @@ describe("生成路径逐条真跑：trace 转移序列 == 答案卷", () => {
     const r = await createAgent({ llm, trace, maxToolSteps: MAX_STEPS, llmRetries: 0 }).run({ userId: "gen", sessionId: path.id, input: "go" });
     expect(trace.sequence()).toEqual(path.expected);
     expect(r.stoppedBy).toBe(TERMINAL_STOPPED_BY[path.terminal as keyof typeof TERMINAL_STOPPED_BY]);
-    expect(trace.records.every((x) => x.status === "allowed")).toBe(true);
+    expect(trace.records.every((x) => x.status !== "unknown")).toBe(true);
   });
 });

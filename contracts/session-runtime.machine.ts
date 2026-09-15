@@ -14,14 +14,14 @@ export const sessionRuntimeMachine = defineMachine<SessionRuntimeState, SessionR
   terminal: [],
   events: ["INPUT", "TURN_DONE", "ASYNC_DONE"],
   rows: [
-    { from: "idle", event: "INPUT", to: "busy", kind: "allowed", priority: "P1", reason: "开始一轮" },
-    { from: "idle", event: "TURN_DONE", to: "idle", kind: "noop", priority: "P1", reason: "没有进行中的轮，忽略" },
-    { from: "busy", event: "TURN_DONE", to: "idle", kind: "allowed", priority: "P1", reason: "本轮结束（任一终态）" },
-    { from: "busy", event: "INPUT", to: "busy", kind: "unknown", priority: "P1", reason: "忙时来新输入：排队 / 拒绝 / 打断 均未决定，不实现" },
-    { from: "busy", event: "ASYNC_DONE", to: "busy", kind: "unknown", priority: "P1", reason: "忙时异步完成（如后台压缩）：未建模" },
-    { from: "idle", event: "ASYNC_DONE", to: "idle", kind: "unknown", priority: "P1", reason: "空闲时异步完成：未建模" },
+    { id: "sr-input", from: "idle", event: "INPUT", to: "busy", kind: "allowed", priority: "P1", reason: "开始一轮" },
+    { id: "sr-turn-done-idle", from: "idle", event: "TURN_DONE", to: "idle", kind: "noop", priority: "P1", reason: "没有进行中的轮，忽略" },
+    { id: "sr-turn-done", from: "busy", event: "TURN_DONE", to: "idle", kind: "allowed", priority: "P1", reason: "本轮结束（任一终态）" },
+    { id: "sr-input-while-busy", from: "busy", event: "INPUT", to: "busy", kind: "unknown", priority: "P1", reason: "忙时来新输入：排队 / 拒绝 / 打断 均未决定，不实现" },
+    { id: "sr-async-while-busy", from: "busy", event: "ASYNC_DONE", to: "busy", kind: "unknown", priority: "P1", reason: "忙时异步完成（如后台压缩）：未建模" },
+    { id: "sr-async-idle", from: "idle", event: "ASYNC_DONE", to: "idle", kind: "unknown", priority: "P1", reason: "空闲时异步完成：未建模" },
   ],
   invariants: [
-    { id: "no_concurrent_turns_per_session", priority: "P1", status: "planned", text: "同一会话同一时刻至多一轮在跑" },
+    { id: "no_concurrent_turns_per_session", priority: "P1", status: "planned", text: "同一会话同一时刻至多一轮在跑", note: "单进程 CLI 串行 for-await，天然成立；多进程 / HTTP 服务时需要锁，busy 行仍 unknown（NEXT_STEPS 4、10）" },
   ],
 });
