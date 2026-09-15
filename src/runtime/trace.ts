@@ -11,6 +11,8 @@ import type { Verdict } from "../machine/interpreter.js";
 
 export type Effect =
   | { kind: "compact"; before: number; after: number; method: "llm" | "rule" }
+  /** 记忆块超 memoryMaxChars 被截：总条数、保留条数（最新的）、上限——warning，挂在轮首第一条转移上 */
+  | { kind: "memory_truncated"; total: number; kept: number; limit: number }
   | { kind: "llm"; request_id: string; step: number; model: string; messages: number; attempts: number; promptTokens?: number; completionTokens?: number; durationMs: number; outputPreview: string; error?: string }
   | { kind: "parse"; step: number; toolCalls: number; hasFinal: boolean; errors: string[]; warnings: string[] }
   | { kind: "tool"; request_id: string; step: number; name: string; args: Record<string, unknown>; ok: boolean; durationMs: number; resultPreview: string }
@@ -85,6 +87,8 @@ function describeEffect(e: Effect): string {
       return `tool ${e.name}(${JSON.stringify(e.args)}) ${e.ok ? "ok" : "FAIL"} ${e.durationMs}ms → ${e.resultPreview}`;
     case "compact":
       return `compact ${e.before}→${e.after} msgs (${e.method})`;
+    case "memory_truncated":
+      return `memory_truncated ${e.kept}/${e.total} 条 (limit ${e.limit} chars)`;
     case "parse":
       return e.errors.length || e.warnings.length ? `parse ${[...e.errors, ...e.warnings].join(" | ")}` : "";
     case "answer":

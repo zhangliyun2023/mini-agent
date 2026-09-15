@@ -1,0 +1,6 @@
+# 2026-09-15T07:51:02Z node v24.15.0 fea47fb t12-membudget
+
+> mini-agent@0.1.0 typecheck
+> tsc --noEmit
+
+exit 0 (expected 0)
