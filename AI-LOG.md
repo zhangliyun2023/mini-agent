@@ -71,3 +71,20 @@ epic 分支 `claude/epic-cerf-44n1c4` 上审计后补的三个提交与 #6 冲�
 ### 工具
 
 本次改动由作者通过 Claude Code 完成，提交带 Co-Authored-By 尾注；判断点与未验证项如上，不把推断写成实跑。
+
+## 5. 方法论回流（Wiki 层，2026-09-15）
+
+这个仓库不只是被方法论指导，也反过来改了方法论。做法参考 WikiSkill（arXiv 2608.27454）的三层：**Raw**（不可变轨迹：trace JSONL、`docs/evidence/`、TEST_REPORT 各轮「红过什么」、本文 §3 的判断点、issue #1 / #5 / #8 的拍板）→ **Wiki**（跨轮累积的失败模式、成功策略、提案历史含被拒项、验证结果：`.claude/skills/adopt-ai-era-runtime/WIKI.md`）→ **Skill**（当前生效的规则：`.claude/skills/adopt-ai-era-runtime/SKILL.md`，版本见 frontmatter）。
+
+规则：**做票的 agent 不读 Wiki**，只拿 issue + SKILL.md + AGENTS.md——否则它直接照抄，轨迹就没有信息量；Wiki 由维护者在 PR 审阅之后写，再决定哪些提案进 skill。本仓三个 PR（#2 / #6 / #9）都是这么跑的。
+
+从本仓长出来、已写回 skill 的四条：
+
+| 来源 | 写回了什么 |
+|---|---|
+| PR #2 的 agent 没看到参考实现，自己重写了解释器，禁止了终态出边 | skill 的 checklist「终态吸收态」改为「终态无出边，轮后事件由外层机器接」；参考表 `turn.machine.example.ts` 的步数上限从解析后挪到工具后（与实现一致） |
+| 对照报告把「和参考长得不一样」当缺陷 | S0 行写明「参考实现语义是契约、字段形状不是」 |
+| PR #6 变异验证：unknown 谎报 allowed 只在契约层红、探索层不红 | 变异验证必须同时看契约层与探索层 |
+| PR #9 离线 oracle 一接上就点名了 14 个旧格式 trace 文件 | 证据文件也要有版本，格式一变旧证据就是假阳性 |
+
+未经验证的部分如实写：skill 的探针（`evals/PROBES.md`）只定义没跑，所以这些回流是「维护者判断」，不是「探针通过」。
