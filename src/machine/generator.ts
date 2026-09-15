@@ -1,4 +1,4 @@
-import { interpret, rowId, type Machine, type Row } from "./interpreter.js";
+import { interpret, type Machine, type Row } from "./interpreter.js";
 
 // 自动 E2E 的前半段（docs/product/SPEC-state-machines.md §5）：
 // 从表 + runner 协议 BFS 出所有到终态的事件路径，每条路径 = 期望转移序列（答案卷）+ 走过的行。
@@ -14,8 +14,10 @@ export interface RunnerProtocol<S extends string, E extends string, F> {
 export interface GeneratedPath<S extends string, E extends string> {
   id: string;
   events: E[];
-  /** 答案卷：与 MemoryTraceSink.sequence() 同格式 */
+  /** 答案卷：行 id 序列，非 allowed 追加 ` [status]`；与 MemoryTraceSink.sequence() 同格式 */
   expected: string[];
+  /** 纯行 id 序列（不带 status），与 contracts/journeys.json 的 expect 同格式 */
+  rowIds: string[];
   rows: Row<S, E>[];
   terminal: S;
 }
@@ -47,11 +49,12 @@ export function generatePaths<S extends string, E extends string, F>(
 
   interface Node { state: S; facts: F; last: E | undefined; events: E[]; expected: string[]; rows: Row<S, E>[] }
   const queue: Node[] = [{ state: m.initial, facts: protocol.initialFacts(), last: undefined, events: [], expected: [], rows: [] }];
+  const toPath = (n: Node): GeneratedPath<S, E> => ({ id: n.events.join(" > "), events: n.events, expected: n.expected, rowIds: n.rows.map((r) => r.id), rows: n.rows, terminal: n.state });
 
   while (queue.length) {
     const n = queue.shift()!;
     if (m.isTerminal(n.state)) {
-      paths.push({ id: n.events.join(" > "), events: n.events, expected: n.expected, rows: n.rows, terminal: n.state });
+      paths.push(toPath(n));
       continue;
     }
     if (n.events.length >= maxDepth) throw new Error(`路径超过 ${maxDepth} 步仍未到终态：${n.events.join(" > ")}`);
@@ -64,16 +67,16 @@ export function generatePaths<S extends string, E extends string, F>(
         gaps.push({ state: n.state, event, after: n.events, reason: t.reason });
         continue;
       }
-      if (t.row) used.add(rowId(t.row));
+      if (t.row) used.add(t.row.id);
       queue.push({
         state: t.to,
         facts,
         last: event,
         events: [...n.events, event],
-        expected: [...n.expected, `${n.state} --${event}--> ${t.to}${t.status === "allowed" ? "" : ` [${t.status}]`}`],
+        expected: [...n.expected, `${t.row!.id}${t.status === "allowed" ? "" : ` [${t.status}]`}`],
         rows: t.row ? [...n.rows, t.row] : n.rows,
       });
     }
   }
-  return { paths, gaps, rowsUsed: m.rows.map(rowId).filter((id) => used.has(id)) };
+  return { paths, gaps, rowsUsed: m.rows.map((r) => r.id).filter((id) => used.has(id)) };
 }

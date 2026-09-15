@@ -140,7 +140,7 @@ export function createAgent(o: AgentOptions) {
         result = { answer, steps, stoppedBy, turn, traceId };
       }
       seq += 1;
-      trace.write({ ts: new Date().toISOString(), trace_id: traceId, userId, sessionId, turn, seq, step: facts.step, from: state, to, event, status: t.status, reason: t.reason, effects: all });
+      trace.write({ ts: new Date().toISOString(), trace_id: traceId, feature: machine.feature, userId, sessionId, turn, seq, step: facts.step, from: state, to, event, status: t.status, reason: t.reason, transition: t.row?.id ?? null, effects: all });
       if (t.status === "unknown" && unknownTransition === "throw") throw new Error(`未建模的状态转移：${state} + ${event}（${t.reason}）`);
       state = to;
       return t;

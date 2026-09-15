@@ -8,6 +8,8 @@
 export type Kind = "allowed" | "rejected" | "noop" | "unknown";
 
 export interface Row<S extends string = string, E extends string = string> {
+  /** 行的显式 id（`t-llm-ok` 风格），定义期查重；trace 记录与答案卷都用它，改 reason 不会漂 */
+  id: string;
   from: S;
   event: E;
   to: S;
@@ -79,7 +81,8 @@ export interface Reachability<S extends string, E extends string> {
 
 export class MachineDefinitionError extends Error {}
 
-export function rowId(row: Row): string {
+/** 可读的格签名 `from --EVENT[guard]--> to`：只作文档与报错，不是行的身份（身份是 row.id） */
+export function rowSignature(row: Row): string {
   return `${row.from} --${row.event}${row.guard ? `[${row.guard}]` : ""}--> ${row.to}`;
 }
 
@@ -98,8 +101,12 @@ export function defineMachine<S extends string, E extends string, F = unknown>(d
 
   const seenGuardless = new Set<string>();
   const seenGuards = new Set<string>();
+  const seenIds = new Set<string>();
   for (const row of def.rows) {
-    const id = rowId(row);
+    const id = rowSignature(row);
+    if (typeof row.id !== "string" || !row.id.trim()) fail(`行 ${id}：缺少显式 id`);
+    if (seenIds.has(row.id)) fail(`行 ${id}：id "${row.id}" 重复`);
+    seenIds.add(row.id);
     if (!def.states.includes(row.from)) fail(`行 ${id}：from 不在 states 里`);
     if (!def.states.includes(row.to)) fail(`行 ${id}：to 不在 states 里`);
     if (!def.events.includes(row.event)) fail(`行 ${id}：event 不在 events 里`);
@@ -196,6 +203,7 @@ export interface Contract {
   guards: string[];
   rows: Array<{
     id: string;
+    signature: string;
     from: string;
     event: string;
     guard: string | null;
@@ -224,7 +232,8 @@ export function toContract<S extends string, E extends string, F>(m: Machine<S, 
     events: [...m.events],
     guards: Object.keys(m.guards),
     rows: m.rows.map((row) => ({
-      id: rowId(row),
+      id: row.id,
+      signature: rowSignature(row),
       from: row.from,
       event: row.event,
       guard: row.guard ?? null,
@@ -239,13 +248,13 @@ export function toContract<S extends string, E extends string, F>(m: Machine<S, 
     cells: {
       total: cells.length,
       listed: cells.filter((c) => c.listed).length,
-      declared_unknown: m.rows.filter((row) => row.kind === "unknown").map(rowId),
+      declared_unknown: m.rows.filter((row) => row.kind === "unknown").map(rowSignature),
       unlisted: cells.filter((c) => !c.listed).map((c) => `${c.from} + ${c.event}`),
     },
     reachable: {
       states: r.states,
       unreachable_states: r.unreachableStates,
-      unreachable_rows: r.unreachableRows.map(rowId),
+      unreachable_rows: r.unreachableRows.map(rowSignature),
     },
   };
 }

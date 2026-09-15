@@ -140,13 +140,10 @@ describe("trace：以转移为单位，序列对答案卷", () => {
     const trace = new MemoryTraceSink();
     const llm = new FakeLLM([tc("calculator", { expression: "1+1" }), "<final>2</final>"]);
     const r = await createAgent({ llm, trace }).run({ userId: "u", sessionId: "s", input: "1+1" });
-    expect(trace.sequence()).toEqual([
-      "deciding --LLM_OK--> deciding",
-      "deciding --PARSED_TOOL_CALLS--> executing_tools",
-      "executing_tools --TOOLS_DONE--> deciding",
-      "deciding --LLM_OK--> deciding",
-      "deciding --PARSED_FINAL--> done",
-    ]);
+    expect(trace.sequence()).toEqual(["t-llm-ok", "t-tools", "t-tools-done", "t-llm-ok", "t-final"]);
+    // 每条记录带命中的行 id（A1），可读格另存
+    expect(trace.records.map((x) => x.transition)).toEqual(["t-llm-ok", "t-tools", "t-tools-done", "t-llm-ok", "t-final"]);
+    expect(trace.records[1]).toMatchObject({ from: "deciding", event: "PARSED_TOOL_CALLS", to: "executing_tools" });
     expect(r.traceId).toBe("u/s/1");
     expect(trace.records.every((x) => x.trace_id === "u/s/1" && x.sessionId === "s" && x.turn === 1 && x.status === "allowed")).toBe(true);
     expect(trace.records.map((x) => x.seq)).toEqual([1, 2, 3, 4, 5]);

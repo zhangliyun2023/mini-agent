@@ -19,6 +19,8 @@ export interface TransitionRecord extends Record<string, unknown> {
   ts: string;
   /** 用户/会话/轮次 */
   trace_id: string;
+  /** 哪张表（答案卷按 feature 过滤） */
+  feature: string;
   userId: string;
   sessionId: string;
   turn: number;
@@ -31,6 +33,8 @@ export interface TransitionRecord extends Record<string, unknown> {
   event: TurnEvent;
   status: Kind;
   reason?: string;
+  /** 命中的行 id；unknown 为 null */
+  transition: string | null;
   effects: Effect[];
 }
 
@@ -38,9 +42,10 @@ export interface TraceSink {
   write(record: TransitionRecord): void;
 }
 
-/** 答案卷与 trace 序列都用这个格式：`from --EVENT--> to`，非 allowed 追加 ` [status]` */
-export function formatTransition(r: { from: string; event: string; to: string; status: Kind }): string {
-  return `${r.from} --${r.event}--> ${r.to}${r.status === "allowed" ? "" : ` [${r.status}]`}`;
+/** 答案卷与 trace 序列都用这个格式：行 id（unknown 没有行，退回 `from --EVENT--> to`），非 allowed 追加 ` [status]` */
+export function formatTransition(r: { from: string; event: string; to: string; status: Kind; transition?: string | null }): string {
+  const head = r.transition ?? `${r.from} --${r.event}--> ${r.to}`;
+  return `${head}${r.status === "allowed" ? "" : ` [${r.status}]`}`;
 }
 
 export class MemoryTraceSink implements TraceSink {

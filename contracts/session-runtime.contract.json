@@ -15,7 +15,8 @@
   "guards": [],
   "rows": [
     {
-      "id": "idle --INPUT--> busy",
+      "id": "sr-input",
+      "signature": "idle --INPUT--> busy",
       "from": "idle",
       "event": "INPUT",
       "guard": null,
@@ -27,7 +28,8 @@
       "effects": []
     },
     {
-      "id": "idle --TURN_DONE--> idle",
+      "id": "sr-turn-done-idle",
+      "signature": "idle --TURN_DONE--> idle",
       "from": "idle",
       "event": "TURN_DONE",
       "guard": null,
@@ -39,7 +41,8 @@
       "effects": []
     },
     {
-      "id": "busy --TURN_DONE--> idle",
+      "id": "sr-turn-done",
+      "signature": "busy --TURN_DONE--> idle",
       "from": "busy",
       "event": "TURN_DONE",
       "guard": null,
@@ -51,7 +54,8 @@
       "effects": []
     },
     {
-      "id": "busy --INPUT--> busy",
+      "id": "sr-input-while-busy",
+      "signature": "busy --INPUT--> busy",
       "from": "busy",
       "event": "INPUT",
       "guard": null,
@@ -63,7 +67,8 @@
       "effects": []
     },
     {
-      "id": "busy --ASYNC_DONE--> busy",
+      "id": "sr-async-while-busy",
+      "signature": "busy --ASYNC_DONE--> busy",
       "from": "busy",
       "event": "ASYNC_DONE",
       "guard": null,
@@ -75,7 +80,8 @@
       "effects": []
     },
     {
-      "id": "idle --ASYNC_DONE--> idle",
+      "id": "sr-async-idle",
+      "signature": "idle --ASYNC_DONE--> idle",
       "from": "idle",
       "event": "ASYNC_DONE",
       "guard": null,

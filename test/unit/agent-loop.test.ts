@@ -87,12 +87,7 @@ describe("Agent Loop", () => {
     const r = await createAgent({ llm, trace, maxToolSteps: 2 }).run({ userId: "u1", sessionId: "s1", input: "x" });
     expect(r.stoppedBy).toBe("max_steps");
     expect(llm.calls.length).toBe(2);
-    expect(trace.sequence()).toEqual([
-      "deciding --LLM_OK--> deciding",
-      "deciding --PARSED_ERROR--> deciding",
-      "deciding --LLM_OK--> deciding",
-      "deciding --PARSED_ERROR--> max_steps",
-    ]);
+    expect(trace.sequence()).toEqual(["t-llm-ok", "t-parse-error", "t-llm-ok", "t-parse-error-cap"]);
     // 解析失败的路径上没有任何工具被执行
     expect(trace.effects("tool")).toEqual([]);
     expect(r.steps.every((s) => s.kind === "llm")).toBe(true);
@@ -119,7 +114,8 @@ describe("闸：表里没列的 (状态, 事件) 在运行时被拦下", () => {
     const last = trace.records.at(-1)!;
     expect(last).toMatchObject({ from: "deciding", event: "PARSED_TOOL_CALLS", to: "error", status: "unknown" });
     expect(last.reason).toMatch(/未在表里列出/);
-    expect(trace.sequence()).toEqual(["deciding --LLM_OK--> deciding", "deciding --PARSED_TOOL_CALLS--> error [unknown]"]);
+    expect(trace.sequence()).toEqual(["t-llm-ok", "deciding --PARSED_TOOL_CALLS--> error [unknown]"]);
+    expect(last.transition).toBeNull();
     // 历史里仍然恰好一条最终答案，会话没被搞坏
     const hist = agent.sessions.get("u1", "s1").history;
     expect(hist.filter((m) => m.role === "assistant" && m.content.startsWith("<final>")).length).toBe(1);

@@ -27,7 +27,8 @@
   ],
   "rows": [
     {
-      "id": "deciding --LLM_OK--> deciding",
+      "id": "t-llm-ok",
+      "signature": "deciding --LLM_OK--> deciding",
       "from": "deciding",
       "event": "LLM_OK",
       "guard": null,
@@ -44,7 +45,8 @@
       ]
     },
     {
-      "id": "deciding --LLM_FAILED--> error",
+      "id": "t-llm-failed",
+      "signature": "deciding --LLM_FAILED--> error",
       "from": "deciding",
       "event": "LLM_FAILED",
       "guard": null,
@@ -62,7 +64,8 @@
       ]
     },
     {
-      "id": "deciding --PARSED_FINAL--> done",
+      "id": "t-final",
+      "signature": "deciding --PARSED_FINAL--> done",
       "from": "deciding",
       "event": "PARSED_FINAL",
       "guard": null,
@@ -79,7 +82,8 @@
       ]
     },
     {
-      "id": "deciding --PARSED_TOOL_CALLS--> executing_tools",
+      "id": "t-tools",
+      "signature": "deciding --PARSED_TOOL_CALLS--> executing_tools",
       "from": "deciding",
       "event": "PARSED_TOOL_CALLS",
       "guard": null,
@@ -95,7 +99,8 @@
       ]
     },
     {
-      "id": "deciding --PARSED_ERROR[hasStepsLeft]--> deciding",
+      "id": "t-parse-error",
+      "signature": "deciding --PARSED_ERROR[hasStepsLeft]--> deciding",
       "from": "deciding",
       "event": "PARSED_ERROR",
       "guard": "hasStepsLeft",
@@ -111,7 +116,8 @@
       ]
     },
     {
-      "id": "deciding --PARSED_ERROR--> max_steps",
+      "id": "t-parse-error-cap",
+      "signature": "deciding --PARSED_ERROR--> max_steps",
       "from": "deciding",
       "event": "PARSED_ERROR",
       "guard": null,
@@ -128,7 +134,8 @@
       ]
     },
     {
-      "id": "executing_tools --TOOLS_DONE[hasStepsLeft]--> deciding",
+      "id": "t-tools-done",
+      "signature": "executing_tools --TOOLS_DONE[hasStepsLeft]--> deciding",
       "from": "executing_tools",
       "event": "TOOLS_DONE",
       "guard": "hasStepsLeft",
@@ -144,7 +151,8 @@
       ]
     },
     {
-      "id": "executing_tools --TOOLS_DONE--> max_steps",
+      "id": "t-tools-done-cap",
+      "signature": "executing_tools --TOOLS_DONE--> max_steps",
       "from": "executing_tools",
       "event": "TOOLS_DONE",
       "guard": null,
