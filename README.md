@@ -6,7 +6,7 @@
 
 ```bash
 npm ci
-cp .env.example .env        # 填任意 OpenAI-compatible 的 key；默认端点 DashScope，模型 qwen3-max
+cp .env.example .env        # 填任意 OpenAI-compatible 的 key；默认 DashScope qwen3-max，DeepSeek deepseek-flash 也实测通过
 npm run chat -- --user A --session w1
 ```
 

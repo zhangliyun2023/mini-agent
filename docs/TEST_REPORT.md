@@ -78,6 +78,10 @@
 
 另：CLI 冒烟（手工，v0.1）——把 `OPENAI_BASE_URL` 指到不可达端口跑 `npm run chat`，看到 `deciding --LLM_FAILED--> error` 回显、`助手> 模型调用失败：Connection error.`、trace 文件一条转移记录且 key 字符串不在 trace 与 session JSON 里。
 
+### 换模型 smoke（2026-09-15，DeepSeek `deepseek-flash`，官方端点）
+
+只改 `.env` 三行（`OPENAI_BASE_URL=https://api.deepseek.com`、`MODEL=deepseek-flash`），runtime 与 prompt 一字未动：`npm run test:live` **5/5 + afterAll 证据检查 0 违反**，单次模型调用约 1.0–1.5s（qwen3-max 约 1–3s）。CLI 三句（计算 / 记两条待办 / 标完成）全部按表走，一步两个工具调用正常。转移记录见 `evals/live-trace/` 最新两个目录。仍是少量 smoke，不写可靠率；也没有观察到 qwen3-max 那六种标签偏差是否在 deepseek 上出现——样本太小，不下结论。
+
 ## 4. 五条 P0 不变量（D3 四条 + ⑤ 副作用对账）
 
 | # | 不变量 | oracle | 绿 | 红 |
