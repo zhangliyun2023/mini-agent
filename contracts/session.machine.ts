@@ -25,6 +25,6 @@ export const sessionMachine = defineMachine<SessionState, SessionEvent, Record<s
     { id: "s-input-while-compacting", from: "compacting", event: "INPUT", to: "compacting", kind: "unknown", priority: "P1", reason: "压缩期间来新输入：单进程 CLI 不会发生，未建模" },
   ],
   invariants: [
-    { id: "compaction_never_touches_current_turn", priority: "P1", status: "planned", text: "压缩只动历史，不碰本轮消息" },
+    { id: "compaction_never_touches_current_turn", priority: "P1", status: "planned", text: "压缩只动历史，不碰本轮消息", note: "压缩在 run() 开头、本轮 working 建立之前同步执行，结构上碰不到本轮；表接代码后再写 oracle" },
   ],
 });

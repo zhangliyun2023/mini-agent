@@ -22,6 +22,6 @@ export const sessionRuntimeMachine = defineMachine<SessionRuntimeState, SessionR
     { id: "sr-async-idle", from: "idle", event: "ASYNC_DONE", to: "idle", kind: "unknown", priority: "P1", reason: "空闲时异步完成：未建模" },
   ],
   invariants: [
-    { id: "no_concurrent_turns_per_session", priority: "P1", status: "planned", text: "同一会话同一时刻至多一轮在跑" },
+    { id: "no_concurrent_turns_per_session", priority: "P1", status: "planned", text: "同一会话同一时刻至多一轮在跑", note: "单进程 CLI 串行 for-await，天然成立；多进程 / HTTP 服务时需要锁，busy 行仍 unknown（NEXT_STEPS 4、10）" },
   ],
 });

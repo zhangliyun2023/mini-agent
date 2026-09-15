@@ -105,7 +105,8 @@
       "text": "同一会话同一时刻至多一轮在跑",
       "priority": "P1",
       "status": "planned",
-      "evidence": []
+      "evidence": [],
+      "note": "单进程 CLI 串行 for-await，天然成立；多进程 / HTTP 服务时需要锁，busy 行仍 unknown（NEXT_STEPS 4、10）"
     }
   ],
   "cells": {

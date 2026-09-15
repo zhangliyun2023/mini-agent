@@ -36,6 +36,8 @@ export interface Invariant {
   status: "enforced" | "planned";
   /** enforced 时必填：`<file>::<symbol>`，契约测试会到盘上找 */
   evidence?: string[];
+  /** planned 时必填：为什么还没 enforced、现在靠什么观察 */
+  note?: string;
 }
 
 export interface MachineDef<S extends string, E extends string, F = unknown> {
@@ -133,6 +135,7 @@ export function defineMachine<S extends string, E extends string, F = unknown>(d
   }
   for (const inv of def.invariants ?? []) {
     if (inv.status === "enforced" && !(inv.evidence && inv.evidence.length)) fail(`不变量 ${inv.id}：enforced 必须带 evidence`);
+    if (inv.status === "planned" && !(inv.note && inv.note.trim())) fail(`不变量 ${inv.id}：planned 必须带 note（为什么还没 enforced、现在靠什么观察）`);
     for (const e of inv.evidence ?? []) if (!/^[^:]+::.+$/.test(e)) fail(`不变量 ${inv.id}：evidence "${e}" 应为 <file>::<symbol>`);
   }
 
@@ -223,7 +226,7 @@ export interface Contract {
     covered_by: string[];
     effects: string[];
   }>;
-  invariants: Array<{ id: string; text: string; priority: string; status: string; evidence: string[] }>;
+  invariants: Array<{ id: string; text: string; priority: string; status: string; evidence: string[]; note: string | null }>;
   cells: { total: number; listed: number; declared_unknown: string[]; unlisted: string[] };
   reachable: { states: string[]; unreachable_states: string[]; unreachable_rows: string[] };
 }
@@ -254,7 +257,7 @@ export function toContract<S extends string, E extends string, F>(m: Machine<S, 
       covered_by: [...(row.covered_by ?? [])],
       effects: [...(row.effects ?? [])],
     })),
-    invariants: m.invariants.map((i) => ({ id: i.id, text: i.text, priority: i.priority, status: i.status, evidence: [...(i.evidence ?? [])] })),
+    invariants: m.invariants.map((i) => ({ id: i.id, text: i.text, priority: i.priority, status: i.status, evidence: [...(i.evidence ?? [])], note: i.note ?? null })),
     cells: {
       total: cells.length,
       listed: cells.filter((c) => c.listed).length,

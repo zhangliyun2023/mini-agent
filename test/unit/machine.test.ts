@@ -110,6 +110,13 @@ describe("S0 状态表解释器", () => {
     expect(c.rows[0]).toMatchObject({ id: "r-go-small", signature: "a --GO[small]--> b" });
   });
 
+  it("A4：planned 不变量必须带 note（为什么还没 enforced / 谁在观察），缺 note 定义时抛；契约里 note 可见", () => {
+    const base = { feature: "inv", anchor: "t", initial: "a" as S, states: ["a", "b", "c", "end"] as S[], terminal: ["end"] as S[], events: ["GO", "STAY", "STOP", "NEVER"] as E[], rows: [] };
+    expect(() => defineMachine<S, E, F>({ ...base, invariants: [{ id: "p", text: "t", priority: "P1", status: "planned" }] })).toThrow(/planned.*note|note.*planned/);
+    const ok = defineMachine<S, E, F>({ ...base, invariants: [{ id: "p", text: "t", priority: "P1", status: "planned", note: "只靠 prompt 规则，live 场景观察" }] });
+    expect(toContract(ok).invariants[0]).toMatchObject({ id: "p", status: "planned", note: "只靠 prompt 规则，live 场景观察" });
+  });
+
   it("enumerate 列出全表：状态 × 事件 每格一条，未列格 listed=false", () => {
     const cells = enumerate(sample());
     expect(cells.length).toBe(4 * 4);

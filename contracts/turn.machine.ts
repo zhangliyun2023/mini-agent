@@ -94,8 +94,8 @@ export const turnMachine = defineMachine<TurnState, TurnEvent, TurnFacts>({
       evidence: ["src/machine/invariants.ts::answerAligned", "test/unit/invariants.test.ts::④ 答案 == 盘上历史末条 == trace 末次决策"],
     },
     { id: "unknown_never_silent", priority: "P0", status: "enforced", text: "未列 (状态, 事件) 在运行时被拦下：不执行副作用、记 trace、本轮 error 终态（测试模式直接失败）", evidence: ["src/runtime/agent.ts::unknownTransition", "test/unit/agent-loop.test.ts::表里没列的转移在运行时被拦下"] },
-    { id: "api_key_never_in_trace", priority: "P1", status: "planned", text: "API key 不进 trace：trace 只写模型名、耗时、token、预览，不写配置" },
-    { id: "compaction_cut_on_user", priority: "P1", status: "planned", text: "压缩切点对齐到 user 消息，不把一轮 tool_call/tool 从中间切断" },
+    { id: "api_key_never_in_trace", priority: "P1", status: "planned", text: "API key 不进 trace：trace 只写模型名、耗时、token、预览，不写配置", note: "还没有「把可辨认的假 key 放进配置跑一轮再 grep 产物」的自动测试；现在靠 invariants.test ④ 里的弱断言（trace 文件不含 apiKey|OPENAI）+ CLI 冒烟手工看" },
+    { id: "compaction_cut_on_user", priority: "P1", status: "planned", text: "压缩切点对齐到 user 消息，不把一轮 tool_call/tool 从中间切断", note: "compactSession 按条数切，尚未按轮边界对齐；等 session 表接代码时一起做（NEXT_STEPS 3）" },
   ],
 });
 

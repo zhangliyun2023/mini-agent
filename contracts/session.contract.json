@@ -136,7 +136,8 @@
       "text": "压缩只动历史，不碰本轮消息",
       "priority": "P1",
       "status": "planned",
-      "evidence": []
+      "evidence": [],
+      "note": "压缩在 run() 开头、本轮 working 建立之前同步执行，结构上碰不到本轮；表接代码后再写 oracle"
     }
   ],
   "cells": {
