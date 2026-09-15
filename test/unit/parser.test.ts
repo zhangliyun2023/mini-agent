@@ -102,3 +102,30 @@ describe("真实模型跑出来的偏差（2026-09-14 qwen3-max 实测）", () =
   });
 });
 
+
+describe("真实模型跑出来的偏差（2026-09-15 CLI 实测，用户 B 场景）", () => {
+  it("第二个调用的闭合标签被写成了 <tool_call>，三个调用仍全部提取、顺序不变", () => {
+    const out = parseAssistantOutput(
+      `<tool_call>{"name":"remember","arguments":{"key":"name","value":"老李"}}</tool_call>\n` +
+        `<tool_call>{"name":"remember","arguments":{"key":"city","value":"杭州"}}<tool_call>\n` +
+        `<tool_call>{"name":"search","arguments":{"query":"杭州 适合看书的安静地方 周末"}}</tool_call>`,
+    );
+    expect(out.errors).toEqual([]);
+    expect(out.toolCalls.map((c) => [c.name, c.arguments])).toEqual([
+      ["remember", { key: "name", value: "老李" }],
+      ["remember", { key: "city", value: "杭州" }],
+      ["search", { query: "杭州 适合看书的安静地方 周末" }],
+    ]);
+  });
+
+  it("<final> 开标签写了两遍时，答案里不出现任何标签", () => {
+    const out = parseAssistantOutput(`<final><final>好的，老李！</final>`);
+    expect(out.final).toBe("好的，老李！");
+  });
+
+  it("<final> 没有闭合标签时仍当最终答案", () => {
+    const out = parseAssistantOutput(`<think>x</think><final>你住在上海。`);
+    expect(out.final).toBe("你住在上海。");
+    expect(out.errors).toEqual([]);
+  });
+});
