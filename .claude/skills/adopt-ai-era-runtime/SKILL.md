@@ -2,7 +2,7 @@
 name: adopt-ai-era-runtime
 description: Bring a NO-UI repository (CLI tool, agent runtime, library, daemon) onto the AI-era system — same standard, same vocabulary skills, but with the browser/HTTP assumptions replaced by runtime equivalents (turn = trace_id, LLM call = request_id, RunResult = mirror component, JSONL = transition store). Use instead of /adopt-ai-era when the repo has no DOM, no pages, no HTTP server of its own.
 disable-model-invocation: true
-version: 1.1.0
+version: 1.2.0
 ---
 
 # 把一个无 UI 仓库带上「状态表 + 打点 + 从表生成的测试」体系
