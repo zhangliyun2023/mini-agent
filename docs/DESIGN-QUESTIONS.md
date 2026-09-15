@@ -1,10 +1,27 @@
 # 架构设计题答案
 
-张力允 · 2026-09-15。每模块选一题。每题一段，不铺开；能指到代码的指代码（github.com/zhangliyun2023/mini-agent）。
+张力允 · 2026-09-15。每模块选一题。每题约一千字，不铺开；能指到代码的指代码（github.com/zhangliyun2023/mini-agent）。
 
 ## 模块一 · Q1 首 token 5–10 秒压到 2 秒
 
-【待写】
+物理 TTFT 与「2 秒内有用反馈」是两个目标：前者是主模型真正开始输出，后者可以来自独立的反馈路径。下面优先压缩前者，按「少发、早发、选对」推进，感知层方案最后单说。
+
+先量瓶颈。按排队、prefill（输入处理）、首段生成、回传四段排查；以请求发送为起点，记录后端收到供应商首个非空正文片段的时间，对比前端真正显示的时间，排除心跳、空事件。后端 1.5 秒已收到、页面 7 秒才显示就先修流式透传；若供应商本身第 7 秒才输出，就继续查排队、输入处理和生成，而不是只打开 `stream`。上传与解析另行计时，避免漏掉用户实际等待。
+
+三个杠杆，顺序即优先级。
+
+少发：不让模型为一个局部问题读整份材料。上传即摄取、切块、建索引，首轮只发相关原文及必要上下文；全文检查不能用局部检索替代。图片按模型原生处理分辨率适配，保留小字，避免无意义放大。
+
+早发：利用用户输入问题的时间预热前缀，遵循「稳定在前、问题在后」，确保正式请求复用相同前缀和推理配置。以 Claude API 为例：`max_tokens: 0` 配显式缓存断点，只做 prefill、不生成；写入按基础输入价的 1.25 倍（5 分钟 TTL）或 2 倍（1 小时）计费；最短前缀依模型为 512 到 4096 token，不足时静默不缓存；读命中刷新 TTL。与 `stream: true`、结构化输出、强制 `tool_choice`、Batches 互斥的是零输出预热请求，不是缓存本身，显式 extended thinking 也不兼容 [1]。DeepSeek 等供应商的前缀缓存是自动的，不需要预热请求，但排序原则同样成立。mini-agent 的 system prompt 就是这个排法：角色、协议、工具清单在前，会变的用户记忆块放尾部（`src/protocol/prompt.ts`）；live trace 里每次模型调用都记了 promptTokens（`evals/live-trace/`），量 prefill 的原始数据现成。用户最后不提问，预热就白花钱。
+
+选对：首轮长输入路由到实测 prefill 更快、成本可接受的模型，不是简单换弱模型；MoE、MLA、稀疏注意力提供架构效率潜力 [2]，但不能凭这些标签保证低 TTFT，必须同负载测试并做质量回归。自部署再评估 prefix caching 与 PD（预填充 / 解码）分离。
+
+验收看 P95，不看平均值。固定输入规模、并发和网络条件，把冷请求、预热首轮、复用请求分开测。假设 90% 的请求缓存命中且都在 2 秒内，另有 10% 缓存未命中且都超过 5 秒，那么整体 P95 仍然达不到 2 秒。除了速度，还要检查遗漏率、回答质量和每个成功任务的总成本，把无效预热算进去，不能拿命中缓存的演示代替稳定性验证。
+
+感知层给证据，不猜结论：展示已定位的原文或可确认的局部结果，与主模型并行启动，单独统计「首个有用反馈时间」，不计入主模型 TTFT。对于「全新超长、必须全量、固定大模型、无提前时间」的场景，明确不承诺主模型 2 秒出字，产品承诺只限定为「2 秒内交付有用信息」，而不是此时已经完成全文分析。
+
+[1] Prompt caching · Claude Platform Docs：https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+[2] DeepSeek-V3.2: Pushing the Frontier of Open Large Language Models：https://arxiv.org/html/2512.02556v1
 
 ## 模块二 · Q1 熟悉半个月后，用户重复问一个问过的问题，memory 怎么召回
 
@@ -30,8 +47,25 @@
 
 ## 模块四 · Q2 session busy 时收到新消息 / 异步工具完成
 
-【待写】
+先定原子单元。mini-agent 的一轮由状态表驱动，每一步先 interpret 再执行副作用（`contracts/turn.machine.ts`、`src/runtime/agent.ts`），所以不可打断的单位不是「一次工具执行」而是「一次转移」：模型调用中、工具执行中都不投递任何新东西，`TOOLS_DONE` 之后、下一次模型调用之前是唯一合法的插入点。工具结果在这个边界已经进了本轮的 context（`working` 数组），不会因为用户插话而丢；但它写进 `session.history` 并落盘是在终态转移那一刻，进程中途崩掉会丢掉本轮的中间结果，这是已知取舍，不算已解决。
+
+busy 时到达的东西一律进同一个收件箱，按到达顺序排队，不合并、不丢弃：用户新消息、异步工具结果、子任务完成、外部事件。每条由 runtime 打上来源、信任级别和插入时机（例如「用户在 executing_tools 期间发出，尚未看到 weather 的结果」），模型不猜时序。这样做而不是按时间重排有一个硬原因：原生 function calling 要求 tool 消息紧跟带 tool_calls 的 assistant 消息，用户消息插不进中间，`src/llm/openai-compatible.ts` 里对不上位的 tool 消息就是因此被降级成 user 消息的。标注是唯一能同时保住协议顺序和时序语义的办法。
+
+到边界时把收件箱里的消息一次全部交给模型，多条就多条，顺序保持。以「查天气顺便推荐穿什么」为例，天气结果回来的同时用户发了「算了不用推荐了」：模型在下一次调用里同时看到工具结果和带「发出时尚未看到结果」标注的用户消息，才能区分「看到下雨所以算了」和「临时改主意」，这两种情况该给的回答不同。
+
+停止是另一条通道。用户想终止当前轮用停止键（Claude Code 的 Esc、远程会话的 interrupt），runtime 在下一个转移边界收尾，不经过模型判断，也不靠关键词猜「算了」是不是取消。想改方向就发消息排队。两条通道分开，收件箱里就不需要「纠正类消息」这种特判。
+
+轮已经结束才到的异步结果由外层会话表接：`contracts/session-runtime.machine.ts` 的 idle / busy 两个状态，会话空闲就以它开新一轮，仍忙就排到本轮末尾。这一条在 #5 拍板①「turn 表终态无出边」时已经定下，#19 里每日复盘作为 `ASYNC_DONE` 排队就是一个实例。晚到结果按 `request_id` 对齐来源的轮：轮还在跑就在边界注入为 tool 消息，轮已结束就转成会话级待办、下一轮开始时呈现，来源已取消就丢弃并记 trace。会话表里 `busy + ASYNC_DONE → queued`、`idle + ASYNC_DONE → executing`、`queued + REVIEW_DONE → executing` 已在 #19 R7 按上述决定建成具体行（`contracts/session-runtime.machine.ts`，运行时单进程不可达、表已建模）；`busy + INPUT` 仍诚实标 unknown，接 HTTP 服务时再定排队还是拒绝；随机探索（`test/unit/explore.test.ts`）负责证明没有漏格。
+
+这套做法我在用 Claude Code 完成本作业时逐条观察到过：中途发的消息和下一个工具结果一起交给模型并附一段说明；后台子代理完成以带「不是用户输入」标注的通知进来；runtime 空闲时外部事件以 wake 开新一轮，忙时进队列并提示未读条数，由模型显式读取才算消费。它验证的不是某个名词，而是三条：一切到达都是带元数据的消息，只在边界投递，停止走控制通道。
 
 ## 模块五 · Q1 Claude Code 的工具输出 vs 国内 OpenAI-compatible function calling
 
-【待写】
+两者最根本的差别在「工具调用和结果放在消息的什么位置」。Claude 这边，工具调用是 assistant 消息 content 里的一个 `tool_use` 块，与 text、thinking 块并列，`input` 已经是解析好的 JSON 对象；结果是下一条 user 消息 content 里的 `tool_result` 块，带 `tool_use_id` 和 `is_error`，一条 user 消息可以同时装多个结果和用户自己的文字。OpenAI-compatible 家族（GLM、豆包、DeepSeek、Qwen 都是这一形状）则把调用挂在 assistant 消息的 `tool_calls` 数组上，`arguments` 是一段 JSON 字符串；结果是独立的 `role: tool` 消息，每条带 `tool_call_id`，且必须紧跟在那条 assistant 之后、每个 id 都要有回复。
+
+这个位置差异决定了两边的优缺点。块结构的好处是消息形状松：并行调用天然是多个块，结果与用户插话可以同在一条消息里，这正是模块四里「中途消息和下一个工具结果一起交给模型」能成立的原因；harness 还能往 `tool_result` 内容里附自己的说明，Claude Code 的 system-reminder 就是这样进来的。代价是它不是 OpenAI 兼容形状，接入面窄，块的语义也更复杂。`tool_calls` 数组的好处是生态：一份客户端接所有厂商，`arguments` 是字符串便于流式拼接。代价有三：一，顺序是硬约束，历史里少一条 tool 回复或中间插了 user 消息就 400，重放和压缩历史时要特别小心，mini-agent 的 `toWireMessages`（`src/llm/openai-compatible.ts`）把对不上位的 tool 消息降级成 user 消息就是为此；二，`arguments` 要自己 parse，坏 JSON 是常态，`src/runtime/agent.ts` 里 `fromNativeToolCalls` 对坏参数的处置与文本协议里坏 JSON 走同一条回喂路径；三，厂商实现参差，并行调用、`strict`、空 content 的处理各家不同，同一段代码换模型要重新 smoke。
+
+还有一层差异在模型训练上，是我实测到的：文本标签协议下 qwen3-max 先后出现六种变体（`<invoke>` 别名、裸 JSON、`<tool_code>` 外包、`<function=…><parameter=…>`、闭合标签写成开标签、`<final>` 重复或无闭合，`src/protocol/parser.ts` 逐条接住）；切到原生 function calling 后 qwen3-max 仍有一次没走 `tool_calls`、直接把 `<function=calculator>` 当文本吐出来（issue #4），而 deepseek-flash 原生模式 5/5 干净。这说明「原生」并不天然可靠，它可靠的前提是厂商在训练时把这一形状练实了；训练模板会从文本里泄漏出来。Claude 这边则反过来，Anthropic 定义的 bash、text_editor 这类工具连 schema 都不用给，因为模型是照着它们训练的，Claude Code 的工具输出稳定很大程度来自这一点，而不是块结构本身。
+
+mini-agent 的取舍是两边都留，并把它们收敛到同一个闸：文本协议是缺省，厂商无关、肉眼可查、trace 里能看到原文，代价是解析器要跟着真实模型长；原生模式经 #10 完整化后不再教标签，`tool_calls` 以真 assistant / tool 消息进历史并回放，坏参数走同一条回喂。两种输入都被转成同一形状的 ParsedOutput，下游的状态表、trace、工具执行只有一条路径（`test/unit/native-tools.test.ts`）。如果只能选一个：接国内多家用 OpenAI-compatible 原生模式并逐家 smoke；需要在一条消息里混排文字、多个结果和 harness 自己的注释，块结构是更合适的底座。
+
