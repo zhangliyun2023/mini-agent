@@ -16,7 +16,15 @@
 | **Context** | 一次模型调用实际收到的消息列表 |
 | **历史 (History)** | 会话中已完成轮次的消息，已剥掉思考过程 |
 | **摘要 (Summary)** | 压缩后替代老历史的一段文字 |
-| **长期记忆 (Memory)** | 用户级键值对，跨会话可见 |
+| **长期记忆 (Memory)** | 用户级**记忆条目**的集合，跨会话可见 |
+| **记忆条目 (Entry)** | 一条 key/value，带 `kind`（stated 用户说的 / inferred 推断的）、`confidence`、`source`（会话与轮）、`status`（active / conflict） |
+| **转写 (Transcript)** | 轮末追加的不压缩逐轮记录，带时间戳；复盘的原始材料（Raw 层） |
+| **复盘 (Review)** | 一次记忆整合：读昨天的转写，写回记忆条目，产出呈现 |
+| **计划日期 (Scheduled date)** | 复盘按它算「昨天」（任务时区的昨日 00:00–今日 00:00），不按执行时刻 |
+| **覆盖 (Coverage)** | 复盘读到了多少：full / partial（有会话读不出）/ none（昨天没聊） |
+| **呈现 (Brief)** | 发给用户的复盘文本；可以为空 |
+| **亮点 (Highlight)** | 呈现里的一条，必须有 `why_today`（今天到期 / 昨天没收尾 / 用户说过今天要做）和 `source`，不复述原话 |
+| **复盘日志 (Journal)** | `userId + date` 一份：状态（ok / no_chat / partial_read）、attempts、写回条数、呈现、交付对象 |
 | **Trace** | 每次模型调用 / 工具调用 / 压缩 / 结束原因的结构化记录 |
 
 ## Problem Statement

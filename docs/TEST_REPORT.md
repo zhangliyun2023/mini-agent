@@ -51,10 +51,10 @@
 | 文件 | 覆盖 |
 |---|---|
 | `test/unit/machine.test.ts` | 未列组合 unknown；显式 kind:'unknown' 行；同格 guard 顺序取首条、守卫全不命中 unknown；rejected 行 verdict=blocked 带 reject_code、noop 不改状态；定义期校验（终态出边 / 未知守卫 / 无守卫行挡后行 / 非 allowed 改状态 / covered_by 格式 / enforced 无 evidence / rejected 无 reject_code / 行 id 缺失与重复 / planned 无 note）；enumerate 全表；reachable 与不可达点名；toContract 逐字确定（id + signature）|
-| `test/unit/contracts.test.ts` | 盘上 3 份 JSON == toContract()；turn 8 行全 P0 且 covered_by 在盘上；enforced 不变量（v0.3 起 5 条）evidence 在盘上；reachable 无不可达；30 格列 6 格其余 24 格 unlisted；session-runtime 的 busy 行为 declared_unknown 可见 |
+| `test/unit/contracts.test.ts` | 盘上 4 份 JSON == toContract()（v0.5 起含 review 表）；turn 8 行全 P0 且 covered_by 在盘上；enforced 不变量（v0.3 起 5 条）evidence 在盘上；reachable 无不可达；30 格列 6 格其余 24 格 unlisted；session-runtime 的 busy 行为 declared_unknown 可见 |
 | `test/unit/generator.test.ts`（前 6 条） | gaps 为空；maxSteps=2 生成 10 条路径覆盖 3 个终态；生成路径走过的行 == 全表行；生成集合 ⊆ 手写 covered_by；答案卷是行 id 序列；改 reason 不引起答案卷漂移 |
 | `test/unit/journeys.test.ts`（前 3 条） | journeys.json 每条 id 存在、从 initial 出发、首尾相接、落终态；validateJourney 点名坏 id / 断链；生成器 10 条路径与 journeys 集合相等 |
-| `test/unit/explore.test.ts` | 同 seed 同结果；guard 洞点名 + ddmin 缩到 1 步；ddmin 单测；turn / session / session-runtime 三张表 300 走零违反、每行都被碰到 |
+| `test/unit/explore.test.ts` | 同 seed 同结果；guard 洞点名 + ddmin 缩到 1 步；ddmin 单测；turn / session / session-runtime / review 四张表 300 走零违反、每行都被碰到 |
 | `test/unit/parser.test.ts` | 协议正例、裸文本、多调用、坏 JSON、缺 name、call+final 冲突、`<invoke>` 别名、裸 JSON、`<tool_code>` 外包、`<function=…>` 标签变体（#4）、闭合标签写成开标签、`<final>` 重复开标签 / 无闭合（2026-09-15 CLI 实测第五、六种偏差） |
 | `test/unit/tools.test.ts` | 全部走 `registry.invoke`：specs 形状、未注册、缺必填、类型错、未知参数、枚举外、默认截断、自定义 compact、重名、handler 抛错；四个工具的可见行为；mock 搜索中文二元组命中（#3） |
 | `test/unit/docs.test.ts` | AGENTS.md 七章节按序、铁律 ≤10；引用的文件与命令存在；测试文件全列出；ARCHITECTURE 机器清单 == contracts/*.machine.ts 且证明文件在盘上；gate.sh 四步顺序；TEST_REPORT 三层分开、§13 八条齐；**§0 条数表 == 源码静态计数，AGENTS / README 不写总数**（v0.3） |

@@ -1,0 +1,18 @@
+# 2026-09-15T05:08:12-06:00 node=v24.15.0 commit=bea5091 label=v0.5 cmd: npm run -s test:live
+
+ RUN  v3.2.7 /Users/zhangly04/dev/mini-agent
+
+live trace 不变量：7 个文件，9 轮，42 条转移，status 分布 {"noop":17,"allowed":25}
+ ✓ test/live/live.test.ts (6 tests) 14596ms
+   ✓ 真实模型（文本协议） > 需要精确计算时调用 calculator，答案含正确结果  2003ms
+   ✓ 真实模型（文本协议） > 搜索 + 纯对话追问：第二问不重复搜索也能答  2667ms
+   ✓ 真实模型（文本协议） > 带工具的追问：加两条待办后「把第一条标完成」作用在同一清单上；另一个窗口看不到  5891ms
+   ✓ 真实模型（文本协议） > 模型主动 remember 后，新 session 能用上这条记忆  2358ms
+   ✓ 真实模型（原生 function calling 适配器） > 同一 runtime 换成原生模式也能完成工具调用  1670ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  05:08:12
+   Duration  14.84s (transform 51ms, setup 0ms, collect 80ms, tests 14.60s, environment 0ms, prepare 39ms)
+
+exit 0 (expected 0)

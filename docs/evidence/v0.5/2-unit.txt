@@ -1,0 +1,40 @@
+# 2026-09-15T05:08:09-06:00 node=v24.15.0 commit=bea5091 label=v0.5 cmd: npm test -s --
+
+ RUN  v3.2.7 /Users/zhangly04/dev/mini-agent
+
+ ✓ test/unit/live-evidence.test.ts (3 tests) 12ms
+ ✓ test/unit/invariants.test.ts (12 tests) 15ms
+ ✓ test/unit/review-machine.test.ts (2 tests) 41ms
+ ✓ test/unit/review-invariants.test.ts (8 tests) 55ms
+ ✓ test/unit/review-run.test.ts (11 tests) 65ms
+ ✓ test/unit/native-tools.test.ts (8 tests) 58ms
+ ✓ test/unit/explore.test.ts (7 tests) 164ms
+ ✓ test/unit/session-context.test.ts (14 tests) 23ms
+ ✓ test/unit/review-window.test.ts (8 tests) 21ms
+ ✓ test/unit/memory-entries.test.ts (6 tests) 12ms
+ ✓ test/unit/contracts.test.ts (12 tests) 9ms
+ ✓ test/unit/tools.test.ts (18 tests) 7ms
+ ✓ test/unit/journeys.test.ts (8 tests) 7ms
+ ✓ test/unit/transcript.test.ts (4 tests) 12ms
+ ✓ test/unit/judge-py.test.ts (4 tests) 403ms
+ ✓ test/unit/docs.test.ts (8 tests) 9ms
+ ✓ test/unit/machine.test.ts (10 tests) 23ms
+ ✓ test/unit/agent-loop.test.ts (11 tests) 61ms
+ ✓ test/unit/llm-retry.test.ts (6 tests) 5ms
+ ✓ test/unit/review-consolidate.test.ts (9 tests) 7ms
+ ✓ test/unit/generator.test.ts (16 tests) 13ms
+ ✓ test/unit/parser.test.ts (16 tests) 3ms
+ ✓ test/unit/unknown-transition-default.test.ts (1 test) 6ms
+ ✓ test/unit/review-present.test.ts (8 tests) 4ms
+ ✓ test/unit/review-collect.test.ts (8 tests) 2ms
+ ✓ test/unit/llm-errors.test.ts (21 tests) 2ms
+ ✓ test/unit/review-cli.test.ts (11 tests) 2105ms
+   ✓ npm run review --fake：三态各一次，stdout 首行与 journal 一致 > --fake ok → 退出码 0；首行精确为 `review A <date> <tz> → ok（attempts=1, coverage=full, entries_written=N）`；brief 非空并打印；journal 落在 --data 下且 status ok  313ms
+   ✓ npm run review --fake：三态各一次，stdout 首行与 journal 一致 > 配置错误 → 退出码 1，stderr 说明原因，不落 journal：未知 --fake 场景；坏日期；坏时区  311ms
+
+ Test Files  27 passed (27)
+      Tests  250 passed (250)
+   Start at  05:08:09
+   Duration  2.41s (transform 511ms, setup 0ms, collect 1.91s, tests 3.14s, environment 5ms, prepare 1.50s)
+
+exit 0 (expected 0)

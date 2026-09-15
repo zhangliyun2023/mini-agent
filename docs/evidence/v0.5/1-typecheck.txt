@@ -1,0 +1,2 @@
+# 2026-09-15T05:08:08-06:00 node=v24.15.0 commit=bea5091 label=v0.5 cmd: npm run -s typecheck
+exit 0 (expected 0)

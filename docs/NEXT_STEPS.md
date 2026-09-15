@@ -7,6 +7,15 @@
 1. ~~修两个 live 暴露的旧问题（#3、#4）~~ → 已在 #6（`83d078a`）修复，修后 live 5/5（`docs/TEST_REPORT.md` §3）。剩下：live 再连跑一次 5/5 且 afterAll 不变量检查过（需要 key）。
 2. **API key 不进 trace 的自动测试**：配置里放一个可辨认的假 key 跑一轮（可用 FakeLLM 包一层读配置的客户端），grep `trace/` 与 `data/` 产物；绿 = 找不到。把表里 `api_key_never_in_trace` 从 planned 改 enforced。
 
+## 复盘线（#19 之后）
+
+- **整合器先看已有记忆**：live smoke 里模型把 `remember` 已写的事实换措辞再写一遍，成了 conflict；prompt 里给它现有条目，同义就刷新不新增。
+- **partial_read 可补跑**：现在任何已存在的 journal 都当「已定」只递增 attempts；partial 应允许在转写修好后补跑一次（journal 加 `failed` 或允许 partial 覆盖）。
+- review 表的答案卷进 `contracts/journeys.json`（现在内联在测试里）；证据工具（`judge.py` / `live-evidence`）按 `feature` 分表查契约，把 `trace/reviews/` 也纳入。
+- `extractJsonObject` 从 `protocol/parser.ts` 导出，`consolidate.ts` 不再拷贝。
+- 规则兜底同一行多句命中时 key 加句序，避免自碰 conflict。
+- 会话表 `busy / queued × ASYNC_DONE` 已建模、运行时未接：HTTP 服务时接队列。
+
 ## 状态机线的后续切片
 
 3. **② session 表接代码**：`run()` 开头的 needsCompaction / compactSession 改为走 `sessionMachine` 的 `COMPACT_NEEDED → compacting → COMPACT_DONE|COMPACT_FAILED`，记转移；绿 = 压缩两条既有测试不改断言，契约里 session 表的 P1 行带 covered_by。

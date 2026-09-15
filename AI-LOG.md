@@ -133,3 +133,14 @@ DeepSeek `deepseek-flash`，只跑一次（`docs/evidence/t10/4-live.txt`）：5
 
 - 混合历史（同一会话先文本模式后原生模式）：不在本票，映射层对 id 对不上的 tool 消息降级为 user 是兜底，没有测试证明它在混合历史下的行为。
 - `test/native/native-tools.test.ts` 放在 `test/native/` 而非 `test/unit/`：`docs.test.ts` 的 §0 条数表以 `docs/TEST_REPORT.md` 为单一事实源，本票不改该文件；下一次改 TEST_REPORT 时应把这 8 条并入表并搬回 `test/unit/`。
+
+## 7. 每日复盘 = 记忆整合（issue #19，2026-09-15）
+
+架构题模块三 Q2 没有只写答案，直接落地，答案指到文件。issue 由作者写定 ①–⑪ 拍板；开工前用设计树拷问一轮，找出三处内部矛盾（⑦「排队」与「独立进程」打架；预算丢弃顺序与 #12 不一致；复盘读会被压缩的 history），作者拍板 Q1–Q9（材料来自不压缩的转写、记忆统一为条目、⑦ 只建表、复盘 trace 单独目录、丢弃顺序 conflict → inferred → stated 最老、兜底关键词去「要」、交付追加 `review_brief`、词汇表新增八个词）。
+
+执行：共享类型先定在 issue 评论里，九片分四波、每波并行各占一个 worktree（R1 转写 / R3 条目 / R2 取数 / R5 呈现 → R4 整合 / R6 编排 → R7 表 / R8 CLI → R9 文档）。每片先红后绿、对最承重的不变量各做一次变异；审阅者逐个 rebase、解冲突、把测试并入 `test/unit`、同步条数表后合并。冲突集中在两处：`AGENTS.md` / `TEST_REPORT.md` 的表行（每片各加一行）和 `src/review/types.ts`（四片各建一份相同内容，以先入为准）。
+
+真实模型 smoke 两次（R4 一次、R8 一次，deepseek-flash）：两轮对话「明天下午 3 点交周报」→ 次日复盘 `ok`，3 条 stated + 1 条 `due_today`，重跑 attempts=2 不调模型。发现一条真问题：整合器把 `remember` 已记的事实换措辞再写，成了 conflict（NEXT_STEPS 第一条）。
+
+agent 自己拍的、供作者复核的判断点：R2 把「有行 ts 读不出」也算 partial（比 issue ⑥ 多一格）；R6 把任何已存在的 journal 都当已定不补跑；R7 的守卫是 `coverageNone / nothingReadable / coveragePartial` + 兜底而不是三个互斥守卫（否则探索器报洞）；R7 交付发生在 `DELIVERED` 被解释之前（与工具在 `TOOLS_DONE` 之前执行同法）；R8 `--fake` 默认用临时目录。
+
