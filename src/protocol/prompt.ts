@@ -20,7 +20,7 @@ export function buildSystemPrompt(tools: ToolSpec[], memoryBlock: string): strin
     "- 需要精确计算时必须用 calculator，不要心算。",
     "- 用户追问时结合之前的对话与工具结果作答，不要重复已经做过的调用。",
     "- 用户说「记住…」或透露稳定的个人信息（称呼、城市、偏好）时，必须调用 remember 工具；没有调用就不算记住，不要口头说「已记下」。",
-    "- 标签名必须是 tool_call，不要写成 invoke / function_call。",
+    "- 标签名必须是 tool_call，不要写成 invoke / function_call，也不要用 <function=名字><parameter=参数>…</parameter></function> 的写法。",
     "",
     "示例：",
     "用户：3 的 8 次方是多少",

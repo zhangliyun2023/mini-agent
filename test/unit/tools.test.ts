@@ -117,6 +117,18 @@ describe("search（mock）", () => {
     const r = await reg().invoke("search", { query: "zzzz不存在" }, {});
     expect(r.content).toMatch(/没有找到/);
   });
+  // 2026-09-15 live 暴露（#3）：模型搜「上海今天天气」（无空格），语料是「上海今日天气」，整串子串匹配命中不了
+  it("中文查询不带空格、措辞略有出入（今天 vs 今日）时仍能命中，且天气条目排在前面", async () => {
+    const r = await reg().invoke("search", { query: "上海今天天气" }, {});
+    expect(r.ok).toBe(true);
+    expect(r.content).not.toMatch(/没有找到/);
+    expect(r.content.split("\n")[0]).toMatch(/上海今日天气/);
+    expect(r.content).toMatch(/多云|晴/);
+  });
+  it("查询里只有停用词或与语料毫无交集时，仍然说没找到，不乱给结果", async () => {
+    const r = await reg().invoke("search", { query: "今天的" }, {});
+    expect(r.content).toMatch(/没有找到/);
+  });
 });
 
 describe("todo（有状态，挂在 session 上）", () => {

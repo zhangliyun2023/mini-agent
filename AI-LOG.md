@@ -19,6 +19,13 @@
 | 外层包裹 | 工具调用外面多套一层 `<tool_code>` | 解析器用全局匹配抓内层 `<tool_call>`，外层忽略 |
 | 第四种标签变体（2026-09-15 live 暴露，issue #4） | 原生 function calling 模式下模型没走 `tool_calls`，直接输出 `<function=calculator><parameter=expression>99*99</parameter></function>` | **未修**：解析器不认、当成 final，live「原生 function calling」场景偶发失败。处置留在 issue #4；本轮（#5）不动解析器，报告里按「已知问题」写 |
 
+2026-09-15 live 重跑又暴露两条（issue #3、#4），同样先红测再改：
+
+| 偏差 | 现象 | 处置 |
+|---|---|---|
+| 搜索措辞抖动（#3） | 模型搜 `上海今天天气`（无空格），语料标题是「上海今日天气」，mock 搜索按空格分词后整串子串匹配 → 没找到 → 模型答「无法获取天气」 | `search.ts` 去停用词后中文按二元组切分、非中文按整词，任一片段命中计分；红测走 `registry.invoke` |
+| 第四种标签变体（#4） | `--native-tools` 模式下模型没走 `tool_calls`，直接输出 `<function=calculator><parameter=expression>99*99</parameter></function>`，解析器不认 → 当成裸文本 final → 答案里没有 9801 | 解析器加这一变体：`<function=NAME>` 内的 `<parameter=K>V</parameter>` 收成 arguments（数字/布尔还原类型），记 warning；残缺的 `<function=` / `<parameter=` 判为解析错误回喂而不是 final；system prompt 规则里点名这种写法不要用 |
+
 ## 3. 状态机线（2026-09-15，本次）
 
 ### 提示
