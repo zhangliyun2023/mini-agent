@@ -22,7 +22,7 @@ function locate(ref: string): string | null {
 }
 
 describe("契约 JSON 与表 0 漂移", () => {
-  it.each(CONTRACTS)("盘上 $path == toContract()", ({ machine, path }) => {
+  it.each(CONTRACTS)("盘上 $path == toContract()", ({ machine, path }) => { // ×3
     expect(existsSync(path)).toBe(true);
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual(toContract(machine));
   });

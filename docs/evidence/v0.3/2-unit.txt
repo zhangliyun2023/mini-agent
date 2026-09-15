@@ -1,0 +1,23 @@
+# 2026-09-15T00:27:46-06:00 node=v24.15.0 commit=34dcf14 label=v0.3 cmd: npm test -s --
+
+ RUN  v3.2.7 /private/tmp/ma-port
+
+ ✓ test/unit/parser.test.ts (13 tests) 10ms
+ ✓ test/unit/machine.test.ts (10 tests) 23ms
+ ✓ test/unit/live-evidence.test.ts (3 tests) 38ms
+ ✓ test/unit/journeys.test.ts (8 tests) 21ms
+ ✓ test/unit/session-context.test.ts (11 tests) 15ms
+ ✓ test/unit/agent-loop.test.ts (11 tests) 16ms
+ ✓ test/unit/invariants.test.ts (12 tests) 22ms
+ ✓ test/unit/generator.test.ts (16 tests) 30ms
+ ✓ test/unit/explore.test.ts (6 tests) 409ms
+ ✓ test/unit/docs.test.ts (8 tests) 9ms
+ ✓ test/unit/tools.test.ts (18 tests) 6ms
+ ✓ test/unit/contracts.test.ts (9 tests) 5ms
+
+ Test Files  12 passed (12)
+      Tests  125 passed (125)
+   Start at  00:27:46
+   Duration  1.71s (transform 2.88s, setup 0ms, collect 7.06s, tests 605ms, environment 4ms, prepare 2.65s)
+
+exit 0 (expected 0)

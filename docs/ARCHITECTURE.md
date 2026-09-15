@@ -26,7 +26,7 @@
 
 | 表 | 接法 | 文件 | 谁证明 |
 |---|---|---|---|
-| `turn` | 闸 | `contracts/turn.machine.ts` → `contracts/turn.contract.json` | 契约 0 漂移 + 8 行 covered_by 在盘上：`test/unit/contracts.test.ts`；生成器 10 条路径逐条真跑 == 答案卷：`test/unit/generator.test.ts`；答案卷落盘对账与三态判分：`test/unit/journeys.test.ts`；随机探索零违反：`test/unit/explore.test.ts`；闸拦得住残缺表：`test/unit/agent-loop.test.ts`；四条 P0 不变量一红一绿：`test/unit/invariants.test.ts` |
+| `turn` | 闸 | `contracts/turn.machine.ts` → `contracts/turn.contract.json` | 契约 0 漂移 + 8 行 covered_by 在盘上：`test/unit/contracts.test.ts`；生成器 10 条路径逐条真跑 == 答案卷：`test/unit/generator.test.ts`；答案卷落盘对账与三态判分：`test/unit/journeys.test.ts`；随机探索零违反：`test/unit/explore.test.ts`；闸拦得住残缺表：`test/unit/agent-loop.test.ts`；五条 P0 不变量一红一绿：`test/unit/invariants.test.ts`；在库 live trace 离线过不变量：`test/unit/live-evidence.test.ts` |
 | `session` | 影子 | `contracts/session.machine.ts` → `contracts/session.contract.json` | 契约 0 漂移、三态可达、`compacting + INPUT` 标 unknown：`test/unit/contracts.test.ts`；随机探索零违反：`test/unit/explore.test.ts` |
 | `session-runtime` | 影子 | `contracts/session-runtime.machine.ts` → `contracts/session-runtime.contract.json` | 契约 0 漂移、busy 行为 declared_unknown 可见：`test/unit/contracts.test.ts`；随机探索零违反：`test/unit/explore.test.ts`；变异（unknown 谎报 allowed 必须红）：`docs/evidence/v0.2/5-mutation-B3.txt` |
 
@@ -56,7 +56,7 @@
 
 ```
 contracts/     三张表（*.machine.ts）+ 生成的契约（*.contract.json）+ 答案卷 journeys.json
-src/machine/   interpreter（解释器）/ generator（路径生成）/ check（对答案）/ explore（随机探索）/ invariants（P0 oracle）
+src/machine/   interpreter（解释器）/ generator（路径生成）/ check（对答案）/ explore（随机探索）/ invariants（P0 oracle）/ evidence（trace 证据离线过不变量）
 src/runtime/   agent（闸 + 循环）/ trace（转移记录、request_id、sink）
 src/protocol/  system prompt 构建 + 模型输出解析（永不抛）
 src/tools/     注册表（校验 → 执行 → 精简；redact 进 trace）+ calculator / search / todo / remember

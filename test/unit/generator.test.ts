@@ -70,7 +70,7 @@ describe("答案卷 = 行 id 序列（A1）", () => {
 });
 
 describe("生成路径逐条真跑：trace 转移序列 == 答案卷", () => {
-  it.each(gen.paths.map((p) => [p.id, p] as const))("%s", async (_id, path) => {
+  it.each(gen.paths.map((p) => [p.id, p] as const))("%s", async (_id, path) => { // ×10
     const llm = new FakeLLM(scriptFor(path.events));
     const trace = new MemoryTraceSink();
     const agent = createAgent({ llm, trace, maxToolSteps: MAX_STEPS, llmRetries: 0 });

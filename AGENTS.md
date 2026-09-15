@@ -42,7 +42,7 @@
 | `docs/SPEC.md` | 产品规格：词汇、用户故事 1–44、实现决策、测试决策 |
 | `docs/product/SPEC-state-machines.md` | 状态机线的 11 条决定（D1–D11）、表形状、打点白名单、切片 S0–S6 |
 | `docs/standards/2026-09-01-ai时代软件状态机测试与可观测性.md` | 依据的参照标准 |
-| `docs/TEST_REPORT.md` | 测试报告：三层分开；对标标准 §13 八条逐条给证据；门禁数字与 `docs/evidence/` 一致 |
+| `docs/TEST_REPORT.md` | 测试报告：三层分开；对标标准 §13 八条逐条给证据；门禁数字与 `docs/evidence/` 一致；**单测条数的唯一事实源（§0 表）** |
 | `docs/NEXT_STEPS.md` | 没做与下一步 |
 | `AI-LOG.md` | AI 协作记录：提示、真实模型暴露的偏差、处置 |
 | `README.md` | 运行方式 + 指路 |
@@ -75,7 +75,7 @@ scripts/contracts.ts           contracts:gen / contracts:check 的实现
 scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 ```
 
-测试（`npm test`，条数以 `docs/evidence/<label>/2-unit.txt` 为准）：
+测试（`npm test`；逐文件条数只写在 `docs/TEST_REPORT.md` §0 那张表里，`test/unit/docs.test.ts` 用源码 `it(` 静态计数对账，这里不写数字）：
 
 | 文件 | 层 | 内容 |
 |---|---|---|
@@ -89,7 +89,7 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 | `test/unit/agent-loop.test.ts` | 假模型 | 循环行为、blocked 回喂、残缺表验证闸拦得住（error 终态 / 测试模式抛出） |
 | `test/unit/session-context.test.ts` | 假模型 | 窗口隔离、追问、think 剥离、压缩、memory、trace 序列 / request_id / redact |
 | `test/unit/parser.test.ts` | 纯函数 | 协议解析与真实模型偏差 |
-| `test/unit/docs.test.ts` | 纯函数 | 守文档：七章节、地图文件与命令存在、机器清单 == 表、gate.sh 四步顺序 |
+| `test/unit/docs.test.ts` | 纯函数 | 守文档：七章节、地图文件与命令存在、机器清单 == 表、gate.sh 四步顺序、TEST_REPORT §0 条数表 == 源码静态计数 |
 | `test/unit/tools.test.ts` | 纯函数 | 注册表全部走 `registry.invoke`：未注册 / 缺必填 / 类型错 / 未知参数 / 枚举外 / 截断 / handler 抛错 |
 | `test/live/live.test.ts` | 真实模型 smoke | 5 场景，无 key 自动跳过；afterAll 对当次产出的 trace 跑同一份不变量检查 |
 
@@ -110,7 +110,7 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 
 ## 证据口径
 
-- **已验证（进程内）**：`npm test` 绿的条数，证据在 `docs/evidence/<label>/2-unit.txt`。
+- **已验证（进程内）**：`npm test` 绿的条数，只写在 `docs/TEST_REPORT.md` §0 表（docs.test 对账），证据在 `docs/evidence/<label>/2-unit.txt`。
 - **真实模型少量 smoke**：`npm run test:live` 的 n/5，写具体数字与失败归因，不写可靠率；trace 在 `evals/live-trace/`。
 - **not_run**：没条件跑（如无 key）；**skipped**：跑了但主动跳过（`describe.skipIf`）。两者都不是通过，报告里分开写。
 - **变异**：对最承重的不变量做一次性变异（改一行 → 跑 → 记录红 → 还原），红的输出入 `docs/evidence/`；没红过的不算证据。

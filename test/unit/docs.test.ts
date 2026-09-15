@@ -76,4 +76,36 @@ describe("AGENTS.md 守文档", () => {
     expect(gate).toMatch(/skipped ≠ 通过/);
     expect(agents).toContain("scripts/gate.sh");
   });
+  it("条数单一事实源：TEST_REPORT §0 一张表逐文件条数 == 源码静态计数（it( 记 1，it.each 行按 `// ×N` 标记记 N），总数与文件数也对；AGENTS.md / README 不写总数", () => {
+    // 源码侧：每个 it( 记 1；it.each( 行必须带 `// ×N` 展开标记，记 N
+    const files = readdirSync("test/unit").filter((f) => f.endsWith(".test.ts")).sort();
+    const fromSource: Record<string, number> = {};
+    for (const f of files) {
+      const src = readFileSync(`test/unit/${f}`, "utf8");
+      let n = (src.match(/^\s*it\(/gm) ?? []).length;
+      for (const line of src.split("\n").filter((l) => /^\s*it\.each\(/.test(l))) {
+        const m = /\/\/ ×(\d+)\s*$/.exec(line);
+        expect(m, `${f} 的 it.each 行缺 \`// ×N\` 展开标记：${line.trim()}`).not.toBeNull();
+        n += Number(m![1]);
+      }
+      fromSource[f] = n;
+    }
+    // 报告侧：§0 那张表里 `test/unit/X.test.ts` 行的条数，每个文件只许出现一次（单一事实源）
+    const report = readFileSync("docs/TEST_REPORT.md", "utf8");
+    const fromReport: Record<string, number> = {};
+    for (const m of report.matchAll(/^\| `test\/unit\/([\w-]+\.test\.ts)` \| [^|]* \| (\d+) \|/gm)) {
+      expect(fromReport[m[1]], `${m[1]} 在 TEST_REPORT 里出现了两次条数`).toBeUndefined();
+      fromReport[m[1]] = Number(m[2]);
+    }
+    expect(fromReport).toEqual(fromSource);
+    const total = Object.values(fromSource).reduce((a, b) => a + b, 0);
+    const head = /\| `npm test` \| \*\*(\d+) 文件 (\d+) 条全绿/.exec(report);
+    expect(head, "TEST_REPORT §0 缺 `npm test` 行").not.toBeNull();
+    expect([Number(head![1]), Number(head![2])]).toEqual([files.length, total]);
+    const sum = /^\| 合计 \| (\d+) 文件 \| (\d+) \|/m.exec(report);
+    expect(sum, "TEST_REPORT §0 条数表缺合计行").not.toBeNull();
+    expect([Number(sum![1]), Number(sum![2])]).toEqual([files.length, total]);
+    // 其他文档不再各写一个总数
+    for (const f of ["AGENTS.md", "README.md"]) expect(readFileSync(f, "utf8"), f).not.toMatch(/\d+ 条(单测|全绿)|\d+ 文件 \d+ 条/);
+  });
 });
