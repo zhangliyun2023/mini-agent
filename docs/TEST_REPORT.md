@@ -9,7 +9,7 @@
 | `npm run typecheck` | 通过 | `tsc --noEmit`，含 `contracts/` `scripts/` |
 | `npm run contracts:check` | 3 份契约 0 漂移 | turn / session / session-runtime |
 | `npm test` | 9 文件 89 条全绿 | 不需要 key |
-| `npm run test:live` | **本次未运行** | 环境无 API key；见 §3 |
+| `npm run test:live` | 两次运行：**3/5，再跑 5/5** | 审阅者本机有 key；两条失败是模型抖动暴露的旧问题，见 §3 |
 
 ## 1. 第一层：纯函数通过（不碰模型、不碰 runtime）
 
@@ -40,9 +40,11 @@
 
 `test/live/live.test.ts` 5 个场景（计算、搜索 + 追问、待办跨轮 + 跨窗口、remember 跨会话、原生 function calling）。
 
-- **本次改动后未运行**：会话环境没有 API key。运行方式 `npm run test:live`。
-- 仓库里现有证据 `evals/live-trace/2026-09-15-03-51/`（5 个文件）与 `2026-09-15-03-51-native/`，来自表驱动改造**之前**的一次运行，记录格式是旧的 llm / tool / stop 事件，不是转移记录。下次有 key 时重跑并替换，见 `docs/NEXT_STEPS.md`。
-- live 测试只依赖 `agent.run` 的公开返回值与 `FileTraceSink`，接口未变，预期不需改断言；这是推断，不是实跑结论。
+- **审阅时实跑两次**（qwen3-max，DashScope，2026-09-15 UTC 05:24 与 05:25）：第一次 **3/5**，第二次 **5/5**。转移记录在 `evals/live-trace/2026-09-15-05-24*`（含失败那次）与 `2026-09-15-05-25*`；改造前的旧格式记录已删除。全部记录 `status` 均为 allowed，无 unknown。
+- 第一次的两条失败，都不是本次改动引入的（main 同时段基线 5/5）：
+  - 「搜索 + 追问」：模型搜的是「上海今天天气」（无空格），mock search 按整串子串匹配，语料标题是「上海今日天气」→ 没找到 → 模型答「无法获取」。属 mock 搜索的分词缺陷（issue #3）。
+  - 「原生 function calling」：模型没走 `tool_calls`，直接输出 `<function=calculator><parameter=expression>99*99</parameter></function>`——第四种标签变体，解析器不认、当成 final。属解析器别名缺口（issue #4）。
+- 样本仍是少量 smoke（2 × 5），不写可靠率。
 
 另：CLI 冒烟（手工，本次）——把 `OPENAI_BASE_URL` 指到不可达端口跑 `npm run chat`，看到 `deciding --LLM_FAILED--> error` 回显、`助手> 模型调用失败：Connection error.`、trace 文件一条转移记录且 key 字符串不在 trace 与 session JSON 里。
 
@@ -67,12 +69,12 @@ oracle 实现在 `src/machine/invariants.ts`，只看 trace 记录、返回值�
 | 4 | 失败场景能自动缩减并重新回放 | **部分** | 回放：每条生成路径的 id 就是事件序列，`scriptFor()` 一步还原成 FakeLLM 脚本；缩减：未做属性测试与自动缩减（见 NEXT_STEPS） |
 | 5 | 主题和菜单布局有结构化断言 | **不适用** | 无 UI（D7） |
 | 6 | 工作空间重命名、刷新、重启、定时任务恢复有正例、反例、邻近 invariant | **部分**（按对应物） | 重启对应物：新实例读盘接着聊（正例）、别的用户 `list` 为空 / 看不到 memory（反例）、压缩失败退回规则（邻近）；重命名与定时任务无对应物 |
-| 7 | 报告区分已验证、失败、未覆盖、跳过、外部依赖不可用 | **满足** | 本报告 §0–§3：已验证 89 条；失败 0；未覆盖见 §6；跳过 / 外部依赖不可用 = live 5 条（无 key） |
+| 7 | 报告区分已验证、失败、未覆盖、跳过、外部依赖不可用 | **满足** | 本报告 §0–§3：已验证（进程内）89 条；真实模型少量 smoke 3/5 → 5/5，两条失败已归因并开 issue；未覆盖见 §6 |
 | 8 | 敏感数据不进测试产物或 trace | **部分** | ④ 里一条弱断言（trace 文件不含 `apiKey|OPENAI`）+ CLI 冒烟手工确认 key 字符串不在 trace / session；表里 `api_key_never_in_trace` 仍标 planned，因为还没有「把真 key 放进配置再 grep 产物」的自动测试 |
 
 ## 6. 未覆盖 / 诚实边界
 
 - ② session 表与 ③ session-runtime 表只建表 + 契约，**没有接代码**；`compacting + INPUT`、`busy + INPUT/ASYNC_DONE` 标 unknown。
 - LLM 重试在 `callLLM` 内部，trace 上只见 `attempts` 数，不是逐次转移。
-- 真实模型只有 smoke，且本次未重跑。
+- 真实模型只有 smoke（两次 × 5 条），失败两条已归因、未修（issue #3、#4）。
 - 既有测试中有 3 处 trace 断言因 D4（打点单位改为转移）而改写：两处 compact 改为看副作用，一处 trace 序列改为对答案卷；其余 33 条断言未动。

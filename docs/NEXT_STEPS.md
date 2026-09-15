@@ -4,7 +4,7 @@
 
 ## 有 key 之后立刻做
 
-1. **重跑 live，替换旧 trace**：`npm run test:live`，把 `evals/live-trace/` 里 2026-09-15-03-51 的旧格式记录换成转移记录；TEST_REPORT §3 从「推断」改为「实跑」。
+1. **修两个 live 暴露的旧问题**（issue #3 mock search 分词、#4 `<function=…>` 标签变体）；绿 = 各一条红测转绿，live 连跑两次 5/5。
 2. **API key 不进 trace 的自动测试**：配置里放一个可辨认的假 key 跑一轮（可用 FakeLLM 包一层读配置的客户端），grep `trace/` 与 `data/` 产物；绿 = 找不到。把表里 `api_key_never_in_trace` 从 planned 改 enforced。
 
 ## 状态机线的后续切片
