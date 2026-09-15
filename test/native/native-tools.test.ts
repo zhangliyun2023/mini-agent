@@ -162,3 +162,67 @@ describe("#10 原生模式：OpenAICompatibleLLM 发给厂商的 messages", () =
     }
   });
 });
+
+describe("#10 原生模式：会话历史（追问、压缩、坏参数）", () => {
+  const todo = (action: string, extra: object = {}) => ({ name: "todo", arguments: { action, ...extra } });
+  const lastTool = (m: any[]) => [...m].reverse().find((x) => x.role === "tool")?.content ?? "";
+
+  it("带工具的追问：「第一条完成了」作用在上一轮建的清单上；第二轮请求里回放的历史是 assistant.toolCalls + tool.toolCallId 配对，答案不带 <final>", async () => {
+    const llm = new FakeLLM(
+      [{ toolCalls: [todo("add", { item: "买牛奶" })] }, "加好了", { toolCalls: [todo("done", { index: 1 })] }, (m) => lastTool(m)],
+      { native: true },
+    );
+    const agent = createAgent({ llm });
+    await agent.run({ userId: "u", sessionId: "s", input: "记一下买牛奶" });
+    const r = await agent.run({ userId: "u", sessionId: "s", input: "第一条完成了" });
+    expect(r.answer).toContain("[x] 买牛奶");
+    const replay = llm.calls[2];
+    const hist = replay.findIndex((m) => m.role === "assistant" && m.toolCalls);
+    expect(hist).toBeGreaterThan(0);
+    expect(replay[hist + 1]).toMatchObject({ role: "tool", name: "todo", toolCallId: replay[hist].toolCalls![0].id });
+    expect(replay[hist + 2]).toMatchObject({ role: "assistant", content: "加好了" });
+    expect(replay.map((m) => m.content).join("\n")).not.toContain("<final>");
+  });
+
+  it("压缩：原生历史里带 toolCalls 的 assistant 消息在摘要调用的转写里能看见调用了哪个工具；规则兜底不产生空的「助手：」行", async () => {
+    const script: any[] = [];
+    for (let i = 1; i <= 3; i++) script.push({ toolCalls: [{ name: "calculator", arguments: { expression: `${i}+${i}` } }] }, (m: any[]) => `答${i}=${lastTool(m)}`);
+    // 第 4 轮开始前触发压缩：摘要调用记下转写，再回答
+    let transcript = "";
+    script.push((m: any[]) => { transcript = m[1].content; return "要点：算过 1+1 2+2"; });
+    script.push("ok");
+    const llm = new FakeLLM(script, { native: true });
+    const agent = createAgent({ llm, context: { maxHistoryMessages: 8, keepRecentMessages: 4, maxHistoryChars: 100_000 } });
+    for (let i = 1; i <= 3; i++) await agent.run({ userId: "u", sessionId: "s", input: `算${i}+${i}` });
+    await agent.run({ userId: "u", sessionId: "s", input: "问4" });
+    expect(transcript).toContain("calculator");
+    expect(transcript).toContain('"expression":"1+1"');
+    expect(transcript).toContain("答1=2");
+
+    // 规则兜底：摘要接口挂了
+    const llm2 = new FakeLLM([{ toolCalls: [{ name: "calculator", arguments: { expression: "1+1" } }] }, "答1=2", "答2", () => { throw new Error("摘要接口挂了"); }, (m: any[]) => m[1].content], { native: true });
+    const agent2 = createAgent({ llm: llm2, llmRetries: 0, context: { maxHistoryMessages: 3, keepRecentMessages: 1, maxHistoryChars: 100_000 } });
+    await agent2.run({ userId: "u", sessionId: "s", input: "算1+1" });
+    await agent2.run({ userId: "u", sessionId: "s", input: "问2" });
+    const r = await agent2.run({ userId: "u", sessionId: "s", input: "问3" });
+    expect(r.answer).toContain("用户：算1+1");
+    expect(r.answer).toContain("助手：答1=2");
+    expect(r.answer).not.toMatch(/助手：\s*$/m);
+  });
+
+  it("tool_calls 的 arguments 不是合法 JSON：不执行、当解析错误回喂（blocked / PARSE_ERROR），回喂后模型重发即可完成", async () => {
+    const trace = new MemoryTraceSink();
+    const llm = new FakeLLM(
+      [{ toolCalls: [{ name: "calculator", arguments: '{"expression": ' }] }, { toolCalls: [{ name: "calculator", arguments: { expression: "2*3" } }] }, (m) => lastTool(m)],
+      { native: true },
+    );
+    const r = await createAgent({ llm, trace }).run({ userId: "u", sessionId: "s", input: "2*3" });
+    expect(r.answer).toBe("6");
+    expect(trace.records.filter((x) => x.status === "blocked").map((x) => x.reject_code)).toEqual(["PARSE_ERROR"]);
+    expect(trace.effects("tool")).toHaveLength(1);
+    const fb = llm.calls[1];
+    expect(fb.at(-2)?.toolCalls).toBeUndefined();
+    expect(fb.at(-1)).toMatchObject({ role: "tool", name: "parser", toolCallId: "parse-1" });
+    expect(fb.at(-1)!.content).toContain("不是合法 JSON");
+  });
+});
