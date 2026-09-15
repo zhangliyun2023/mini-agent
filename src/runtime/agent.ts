@@ -156,11 +156,11 @@ export function createAgent(o: AgentOptions) {
       pendingEffects.push({ kind: "compact", ...r });
     }
 
-    const memoryBlock = renderMemory(memory.load(userId), ctxOpts.memoryMaxChars);
+    const memoryBlock = renderMemory(memory.entries(userId), ctxOpts.memoryMaxChars);
     if (memoryBlock.truncated) pendingEffects.push({ kind: "memory_truncated", ...memoryBlock.truncated, limit: ctxOpts.memoryMaxChars });
     const systemPrompt = buildSystemPrompt(tools.specs(), memoryBlock.block, mode);
     const working: ChatMessage[] = [{ role: "user", content: input }];
-    const toolCtx = { sessionState: session.state, userId, sessionId };
+    const toolCtx = { sessionState: session.state, userId, sessionId, turn };
     let pendingCalls: RuntimeToolCall[] = [];
 
     const maxStepsAnswer = () => {

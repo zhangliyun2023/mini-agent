@@ -12,6 +12,8 @@ export interface ToolContext {
   sessionState: Record<string, unknown>;
   userId: string;
   sessionId: string;
+  /** 当前轮次（runtime 传入；remember 用它记 source，#19 Q3）。直接 invoke 时可不给 */
+  turn?: number;
 }
 
 export interface ToolDefinition {
@@ -83,6 +85,7 @@ export class ToolRegistry {
       sessionState: ctx.sessionState ?? {},
       userId: ctx.userId ?? "anon",
       sessionId: ctx.sessionId ?? "default",
+      turn: ctx.turn,
     };
     try {
       const raw = await def.handler(args, fullCtx);
