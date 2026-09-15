@@ -1,0 +1,11 @@
+
+ RUN  v3.2.7 /private/tmp/ma-r2-collect
+
+ ✓ test/unit/review-window.test.ts (8 tests) 31ms
+ ✓ test/unit/review-collect.test.ts (8 tests) 2ms
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  04:26:23
+   Duration  207ms (transform 39ms, setup 0ms, collect 71ms, tests 33ms, environment 0ms, prepare 83ms)
+

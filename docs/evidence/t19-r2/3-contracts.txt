@@ -1,0 +1,8 @@
+
+> mini-agent@0.1.0 contracts:check
+> tsx scripts/contracts.ts check
+
+✓ contracts/turn.contract.json 无漂移
+✓ contracts/session.contract.json 无漂移
+✓ contracts/session-runtime.contract.json 无漂移
+exit 0 (expected 0)

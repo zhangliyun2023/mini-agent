@@ -1,0 +1,6 @@
+# 2026-09-15T10:27:18Z node v24.15.0 branch t19-r2-collect base f53cfa1
+
+> mini-agent@0.1.0 typecheck
+> tsc --noEmit
+
+exit 0 (expected 0)
