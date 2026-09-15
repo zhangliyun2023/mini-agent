@@ -145,7 +145,7 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 
 ## Agent skills / tracker / 标签
 
-- 本仓自带项目级 skill：`.claude/skills/ai-era-setup/`（技能族 **ai-era-skills 2.0.0** 的第一次入口，含 runtime 分支的换算表、TS 解释器与判分参考；`WIKI.md` 是维护者读的累积知识，做票的 agent 不读）。全族其余技能装在使用者的全局目录。
+- 本仓自带项目级 skill：`.claude/skills/ai-era-setup/`（技能族 **ai-era-skills 2.0.0** 的第一次入口，含 runtime 分支的换算表、TS 解释器与判分参考；`.claude/skills/ai-era-setup/WIKI.md` 是维护者读的累积知识，做票的 agent 不读）。全族其余技能装在使用者的全局目录。
 - Issue tracker：GitHub `zhangliyun2023/mini-agent`；可做的票贴 `ready-for-agent`；认领 = `/implement #<n>`。
 - 领域文档：单上下文——本文件 + `docs/`；词汇表在 `docs/SPEC.md`，决定在 `docs/product/SPEC-state-machines.md`。
 

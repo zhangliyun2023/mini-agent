@@ -44,9 +44,10 @@ describe("AGENTS.md 守文档", () => {
     expect(agents).toContain("test/live/live.test.ts");
   });
 
-  it("C1：AGENTS.md 是七个固定章节、按顺序；铁律不超过十条", () => {
+  it("C1：AGENTS.md 是九个固定章节、按顺序（七章节 + Agent skills + 什么时候用哪个 skill）；铁律不超过十条", () => {
     const heads = [...agents.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
-    expect(heads).toEqual(["产品是什么", "铁律", "门禁", "地图", "禁止事项", "提交纪律", "证据口径"]);
+    expect(heads).toEqual(["产品是什么", "铁律", "门禁", "地图", "禁止事项", "提交纪律", "证据口径", "Agent skills / tracker / 标签", "什么时候用哪个 skill"]);
+    expect(agents).toMatch(/ai-era-skills \d+\.\d+\.\d+/); // 技能族版本行写死
     const rules = agents.split("## 铁律")[1].split("## 门禁")[0].match(/^\d+\. /gm) ?? [];
     expect(rules.length).toBeGreaterThan(0);
     expect(rules.length).toBeLessThanOrEqual(10);
