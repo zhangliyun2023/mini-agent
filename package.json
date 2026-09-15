@@ -6,6 +6,7 @@
   "description": "从零实现的最小可用 Agent Runtime：loop / 工具注册 / 输出解析 / session / context 压缩 / trace",
   "scripts": {
     "chat": "tsx src/cli.ts",
+    "review": "tsx src/review/cli.ts",
     "test": "vitest run",
     "test:live": "LIVE=1 vitest run test/live",
     "typecheck": "tsc --noEmit",

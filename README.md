@@ -26,6 +26,25 @@ npm run test:live        # 真实模型 5 个 smoke，需要 key
 bash scripts/gate.sh v0.3   # 一键门禁，证据落 docs/evidence/v0.3/（无 key 时 live 写 skipped）
 ```
 
+## 每日复盘
+
+复盘（#19）不接真实 cron：触发 = 一条 CLI 子命令，外部 cron 调它；「至少一次」投递靠幂等键 `userId + date` 兜住（同一天重跑只把 `attempts` 加一，不重跑整合、不重写记忆、不重发）。
+
+```bash
+npm run review -- --user A                                  # 复盘「昨天」；--date 缺省 = 任务时区的今天，--tz 缺省 Asia/Shanghai
+npm run review -- --user A --date 2026-09-15 --tz Asia/Shanghai --deliver w1   # 把 brief 追加进会话 w1
+npm run review -- --fake ok                                 # 无 key 也能跑：脚本化模型 + 临时数据目录，另有 --fake no_chat / --fake partial_read
+npm run review -- --user A --json                           # stdout 只输出 journal 原样 JSON
+```
+
+- 材料 = 昨天的逐轮转写 `data/transcripts/<user>/<session>.jsonl`（`npm run chat` 轮末追加），不读 `session.history`。`--data <dir>` 换存储根目录（chat 与 review 都认，缺省 `data/`）。
+- 产物 = journal `data/reviews/<user>/<date>.json` + stdout 打印 brief。人读格式首行固定：`review <user> <date> <tz> → <status>（attempts=n, coverage=…, entries_written=…）`，然后 brief 全文（没有就打「（今天没有需要提醒的事）」），然后 `delivered_to:`。
+- 三态：`ok`（昨天有可读转写，整合过了）/ `no_chat`（昨天一个会话都没有：不调模型、不写记忆、不交付）/ `partial_read`（有转写文件缺失或读不出：能读的照常整合，journal 里 `unreadable` 点名读不出的会话）。
+- 退出码：`ok` / `no_chat` → 0；`partial_read` → 3（区分于失败，cron 里能看出「跑了但没读全」）；配置错误（参数 / key / 日期 / 时区）→ 1；运行时异常 → 2。
+- `--deliver <sessionId>`：给了且 brief 非空，才往**那一个**会话历史追加一条 `{ role: "assistant", kind: "review_brief" }`；不给就谁也不追加。昨天对话里出现的「把总结发给 B」只是材料，接收人不会因此改变。
+- `--fake ok|no_chat|partial_read`：不调模型，播种夹具转写到 `--data`（缺省一个临时目录）跑出对应状态，供测试与无 key 的评审用。
+- 外部 cron 示例（每天 08:00 上海时间）：`0 8 * * * cd /path/to/mini-agent && npm run review -- --user A --deliver w1 >> data/review.log 2>&1`
+
 ## 系统设计
 
 题目的四步循环就是 `contracts/turn.machine.ts` 那张表——runtime 每一步先 `interpret(state, event, facts)`，表允许才执行副作用：

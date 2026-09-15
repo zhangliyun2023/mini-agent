@@ -8,25 +8,27 @@ import { FileUserMemoryStore } from "./memory/user-memory.js";
 import { FileTraceSink } from "./runtime/trace.js";
 import { FileTranscriptStore } from "./review/transcript.js";
 
-// 用法：npm run chat -- --user A --session w1 [--native-tools] [--quiet]
+// 用法：npm run chat -- --user A --session w1 [--native-tools] [--quiet] [--data <dir>]
+// --data：文件存储根目录（默认 data/；memory / sessions / transcripts 都在它下面），复盘 CLI 用同一个目录就能读到转写
 // 多开终端、不同 --session 就是「同一用户的两个窗口」；同一 --session 再次进入即接着聊。
 const args = Object.fromEntries(
   process.argv.slice(2).map((a, i, arr) => (a.startsWith("--") ? [a.slice(2), arr[i + 1]?.startsWith("--") || arr[i + 1] === undefined ? "true" : arr[i + 1]] : [])).filter((x) => x.length),
 ) as Record<string, string>;
 const userId = args.user ?? "A";
 const sessionId = args.session ?? "w1";
+const dataDir = args.data ?? "data";
 
 const cfg = llmConfig();
-const memory = new FileUserMemoryStore("data/memory");
+const memory = new FileUserMemoryStore(`${dataDir}/memory`);
 const tools = defaultTools(memory);
 const llm = new OpenAICompatibleLLM({ ...cfg, nativeTools: args["native-tools"] ? tools.specs() : undefined });
 const agent = createAgent({
   llm,
   tools,
   memory,
-  sessions: new FileSessionStore("data/sessions"),
+  sessions: new FileSessionStore(`${dataDir}/sessions`),
   trace: new FileTraceSink("trace", !args.quiet),
-  transcripts: new FileTranscriptStore("data/transcripts"),
+  transcripts: new FileTranscriptStore(`${dataDir}/transcripts`),
 });
 
 stderr.write(`mini-agent · model=${cfg.model} · user=${userId} · session=${sessionId} · ${args["native-tools"] ? "native function calling" : "文本协议"}\n输入 /exit 退出，/sessions 列出本用户的会话\n`);

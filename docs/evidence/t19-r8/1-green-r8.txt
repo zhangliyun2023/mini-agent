@@ -1,0 +1,10 @@
+
+ RUN  v3.2.7 /private/tmp/ma-r8-cli
+
+ ✓ test/unit/review-cli.test.ts (11 tests) 1577ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  04:51:41
+   Duration  1.81s (transform 58ms, setup 0ms, collect 69ms, tests 1.58s, environment 0ms, prepare 42ms)
+
