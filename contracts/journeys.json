@@ -1,0 +1,12 @@
+{
+  "direct-final": { "feature": "turn", "title": "不需要工具，直接回答", "expect": ["t-llm-ok", "t-final"] },
+  "llm-failed": { "feature": "turn", "title": "模型调用失败（重试用尽）", "expect": ["t-llm-failed"] },
+  "tool-then-final": { "feature": "turn", "title": "调一次工具后回答", "expect": ["t-llm-ok", "t-tools", "t-tools-done", "t-llm-ok", "t-final"] },
+  "tool-then-llm-failed": { "feature": "turn", "title": "调一次工具后模型失败", "expect": ["t-llm-ok", "t-tools", "t-tools-done", "t-llm-failed"] },
+  "tools-until-cap": { "feature": "turn", "title": "连续调工具到步数上限（工具跑完再拦，拍板②）", "expect": ["t-llm-ok", "t-tools", "t-tools-done", "t-llm-ok", "t-tools", "t-tools-done-cap"] },
+  "tool-then-parse-error-cap": { "feature": "turn", "title": "调一次工具后解析失败且步数用尽", "expect": ["t-llm-ok", "t-tools", "t-tools-done", "t-llm-ok", "t-parse-error-cap"] },
+  "parse-error-then-final": { "feature": "turn", "title": "坏 JSON 被拦下（blocked）后纠正回答", "expect": ["t-llm-ok", "t-parse-error", "t-llm-ok", "t-final"] },
+  "parse-error-then-llm-failed": { "feature": "turn", "title": "坏 JSON 被拦下后模型失败", "expect": ["t-llm-ok", "t-parse-error", "t-llm-failed"] },
+  "parse-error-then-tools-cap": { "feature": "turn", "title": "坏 JSON 被拦下后调工具且步数用尽", "expect": ["t-llm-ok", "t-parse-error", "t-llm-ok", "t-tools", "t-tools-done-cap"] },
+  "parse-errors-until-cap": { "feature": "turn", "title": "连续解析失败到步数上限", "expect": ["t-llm-ok", "t-parse-error", "t-llm-ok", "t-parse-error-cap"] }
+}
