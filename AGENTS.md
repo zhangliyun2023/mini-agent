@@ -70,6 +70,7 @@ src/protocol/                  system prompt 构建 + 模型输出解析（永�
 src/tools/                     注册表（校验 → 执行 → 精简 → redact 进 trace）+ calculator / search / todo / remember
 src/session/                   会话存储（内存 / 文件）+ context 组装与压缩
 src/memory/                    用户级长期记忆（内存 / 文件）
+src/review/                    复盘（#19）：types.ts 共享类型；transcript.ts 逐轮转写（Raw 层，内存 / 文件 data/transcripts，轮末追加、不压缩）
 src/llm/                       LLMClient 接口 + OpenAI-compatible 实现 + FakeLLM
 scripts/contracts.ts           contracts:gen / contracts:check 的实现
 scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
@@ -85,6 +86,7 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 | `test/unit/explore.test.ts` | 纯函数 | 随机探索：可复现、guard 洞点名 + ddmin、三张表零违反 |
 | `test/unit/generator.test.ts` | 纯函数 + 假模型 | 生成 10 条路径、gaps 为空、生成集合 ⊆ 手写覆盖；答案卷是行 id 序列；每条路径 FakeLLM 真跑，trace 序列 == 答案卷 |
 | `test/unit/invariants.test.ts` | 假模型（含真落盘） | 五条 P0 不变量各一红一绿（⑤ 另有反向红：删表上声明 → 真实记录不合账）；④ 用 FileSessionStore + FileTraceSink；文件持久化接着聊 |
+| `test/unit/transcript.test.ts` | 假模型（含真落盘） | #19 R1 转写：两轮后盘上 JSONL 每行 ISO ts 单调不减、role/content == 历史、turn/traceId 对上；FileTranscriptStore 读回保序、list 只见本用户；默认内存版；think 已剥 |
 | `test/unit/live-evidence.test.ts` | 只读真实证据 | 仓库里已提交的 `evals/live-trace/**/*.jsonl` 逐轮过 ① ② ③ ⑤ + unknown 点名；篡改一条记录证明检查会红 |
 | `test/unit/llm-errors.test.ts` | 纯函数 | `classifyLlmError` 按 status / code / name / message 分八类，三类不重试 |
 | `test/unit/llm-retry.test.ts` | 假模型 | 401 一次即 error；429 / 5xx / 超时 / 网络错指数退避重试，逐次尝试进 trace；不传 unknownTransition 不抛出 |
