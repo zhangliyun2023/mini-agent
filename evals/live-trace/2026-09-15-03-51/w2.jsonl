@@ -1,0 +1,4 @@
+{"ts":"2026-09-15T03:51:52.602Z","userId":"A","sessionId":"w2","turn":1,"event":{"kind":"llm","step":1,"model":"qwen3-max","messages":2,"promptTokens":695,"completionTokens":25,"durationMs":987,"outputPreview":"<think>需要列出当前待办清单</think><tool_call>{\"name\":\"todo\",\"arguments\":{\"action\":\"list\"}}</tool_call>"}}
+{"ts":"2026-09-15T03:51:52.603Z","userId":"A","sessionId":"w2","turn":1,"event":{"kind":"tool","step":1,"name":"todo","args":{"action":"list"},"ok":true,"durationMs":1,"resultPreview":"待办清单为空。"}}
+{"ts":"2026-09-15T03:51:53.425Z","userId":"A","sessionId":"w2","turn":1,"event":{"kind":"llm","step":2,"model":"qwen3-max","messages":4,"promptTokens":741,"completionTokens":14,"durationMs":822,"outputPreview":"<final>你的待办清单目前是空的。</final>"}}
+{"ts":"2026-09-15T03:51:53.425Z","userId":"A","sessionId":"w2","turn":1,"event":{"kind":"stop","reason":"final","totalMs":1810}}

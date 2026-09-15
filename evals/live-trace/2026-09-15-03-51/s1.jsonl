@@ -1,0 +1,5 @@
+{"ts":"2026-09-15T03:51:55.244Z","userId":"M","sessionId":"s1","turn":1,"event":{"kind":"llm","step":1,"model":"qwen3-max","messages":2,"promptTokens":699,"completionTokens":62,"durationMs":1818,"outputPreview":"<think>用户提供了姓名和常住城市，属于稳定个人信息，需要调用 remember 工具记录。</think> <tool_call>{\"name\":\"remember\",\"arguments\":{\"key\":\"name\",\"value\""}}
+{"ts":"2026-09-15T03:51:55.245Z","userId":"M","sessionId":"s1","turn":1,"event":{"kind":"tool","step":1,"name":"remember","args":{"key":"name","value":"小张"},"ok":true,"durationMs":0,"resultPreview":"已记住 name = 小张"}}
+{"ts":"2026-09-15T03:51:55.245Z","userId":"M","sessionId":"s1","turn":1,"event":{"kind":"tool","step":1,"name":"remember","args":{"key":"city","value":"上海"},"ok":true,"durationMs":0,"resultPreview":"已记住 city = 上海"}}
+{"ts":"2026-09-15T03:51:56.216Z","userId":"M","sessionId":"s1","turn":1,"event":{"kind":"llm","step":2,"model":"qwen3-max","messages":5,"promptTokens":803,"completionTokens":29,"durationMs":971,"outputPreview":"<final>好的，小张！我已经记下你的名字和常住城市是上海。有什么我可以帮你的吗？</final>"}}
+{"ts":"2026-09-15T03:51:56.217Z","userId":"M","sessionId":"s1","turn":1,"event":{"kind":"stop","reason":"final","totalMs":2791}}

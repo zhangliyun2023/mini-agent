@@ -1,0 +1,23 @@
+{
+  "name": "mini-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "从零实现的最小可用 Agent Runtime：loop / 工具注册 / 输出解析 / session / context 压缩 / trace",
+  "scripts": {
+    "chat": "tsx src/cli.ts",
+    "serve": "tsx src/server.ts",
+    "test": "vitest run",
+    "test:live": "LIVE=1 vitest run test/live",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "openai": "^5.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

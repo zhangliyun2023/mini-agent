@@ -1,0 +1,4 @@
+{"ts":"2026-09-15T03:51:58.011Z","userId":"live","sessionId":"native","turn":1,"event":{"kind":"llm","step":1,"model":"qwen3-max","messages":2,"promptTokens":1325,"completionTokens":34,"durationMs":1123,"outputPreview":"<think>需要精确计算</think><tool_call>{\"name\":\"calculator\",\"arguments\":{\"expression\":\"99*99\"}}</tool_call>"}}
+{"ts":"2026-09-15T03:51:58.012Z","userId":"live","sessionId":"native","turn":1,"event":{"kind":"tool","step":1,"name":"calculator","args":{"expression":"99*99"},"ok":true,"durationMs":0,"resultPreview":"9801"}}
+{"ts":"2026-09-15T03:51:58.813Z","userId":"live","sessionId":"native","turn":1,"event":{"kind":"llm","step":2,"model":"qwen3-max","messages":4,"promptTokens":1371,"completionTokens":18,"durationMs":800,"outputPreview":"<final>99 × 99 = 9801。</final>"}}
+{"ts":"2026-09-15T03:51:58.813Z","userId":"live","sessionId":"native","turn":1,"event":{"kind":"stop","reason":"final","totalMs":1925}}
