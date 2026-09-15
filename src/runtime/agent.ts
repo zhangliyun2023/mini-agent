@@ -9,7 +9,7 @@ import { MemoryUserMemoryStore, renderMemory, type UserMemoryStore } from "../me
 import { assembleMessages, compactSession, DEFAULT_CONTEXT, needsCompaction, stripThink, type ContextOptions } from "../session/context.js";
 import { parseAssistantOutput, type ParsedToolCall } from "../protocol/parser.js";
 import { buildSystemPrompt } from "../protocol/prompt.js";
-import { MemoryTraceSink, preview, type Effect, type TraceSink } from "./trace.js";
+import { MemoryTraceSink, newRequestId, preview, type Effect, type TraceSink } from "./trace.js";
 import { interpret } from "../machine/interpreter.js";
 import { TERMINAL_STOPPED_BY, turnMachine, turnRunnerProtocol, type TurnEvent, type TurnMachine, type TurnState } from "../../contracts/turn.machine.js";
 
@@ -151,17 +151,18 @@ export function createAgent(o: AgentOptions) {
         const messages = assembleMessages(systemPrompt, session, working);
         const t0 = Date.now();
         const step = facts.step + 1;
+        const request_id = newRequestId();
         let res: LLMResponse;
         let attempts: number;
         try {
           ({ res, attempts } = await callLLM(messages));
         } catch (e) {
           const msg = (e as Error).message ?? String(e);
-          transition("LLM_FAILED", [{ kind: "llm", step, model: o.llm.model, messages: messages.length, attempts: (e as { attempts?: number }).attempts ?? llmRetries + 1, durationMs: Date.now() - t0, outputPreview: "", error: msg }], { error: `模型调用失败：${msg}` });
+          transition("LLM_FAILED", [{ kind: "llm", request_id, step, model: o.llm.model, messages: messages.length, attempts: (e as { attempts?: number }).attempts ?? llmRetries + 1, durationMs: Date.now() - t0, outputPreview: "", error: msg }], { error: `模型调用失败：${msg}` });
           continue;
         }
         const text = res.text;
-        transition("LLM_OK", [{ kind: "llm", step, model: o.llm.model, messages: messages.length, attempts, promptTokens: res.usage?.promptTokens, completionTokens: res.usage?.completionTokens, durationMs: Date.now() - t0, outputPreview: preview(text) }]);
+        transition("LLM_OK", [{ kind: "llm", request_id, step, model: o.llm.model, messages: messages.length, attempts, promptTokens: res.usage?.promptTokens, completionTokens: res.usage?.completionTokens, durationMs: Date.now() - t0, outputPreview: preview(text) }]);
         if (state !== "deciding") continue;
         steps.push({ kind: "llm", detail: preview(text) });
 
@@ -196,11 +197,12 @@ export function createAgent(o: AgentOptions) {
         // 工具只在这个状态里跑；进到这里的唯一通道是 allowed 的 PARSED_TOOL_CALLS（P0 不变量 ①）
         const effects: Effect[] = [];
         for (const [i, call] of pendingCalls.entries()) {
+          const request_id = newRequestId();
           const r = await tools.invoke(call.name, call.arguments, toolCtx);
           const content = r.ok ? r.content : `[error] ${r.content}`;
           working.push({ role: "tool", name: call.name, toolCallId: `${facts.step}-${i}`, content });
           steps.push({ kind: "tool", detail: `${call.name} ${r.ok ? "ok" : "fail"}` });
-          effects.push({ kind: "tool", step: facts.step, name: call.name, args: call.arguments, ok: r.ok, durationMs: r.durationMs, resultPreview: preview(r.content) });
+          effects.push({ kind: "tool", request_id, step: facts.step, name: call.name, args: call.arguments, ok: r.ok, durationMs: r.durationMs, resultPreview: preview(r.content) });
         }
         pendingCalls = [];
         transition("TOOLS_DONE", effects);

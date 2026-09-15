@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { appendJsonl } from "../session/store.js";
 import type { TurnEvent, TurnState } from "../../contracts/turn.machine.js";
 import type { Kind } from "../machine/interpreter.js";
@@ -10,9 +11,9 @@ import type { Kind } from "../machine/interpreter.js";
 
 export type Effect =
   | { kind: "compact"; before: number; after: number; method: "llm" | "rule" }
-  | { kind: "llm"; step: number; model: string; messages: number; attempts: number; promptTokens?: number; completionTokens?: number; durationMs: number; outputPreview: string; error?: string }
+  | { kind: "llm"; request_id: string; step: number; model: string; messages: number; attempts: number; promptTokens?: number; completionTokens?: number; durationMs: number; outputPreview: string; error?: string }
   | { kind: "parse"; step: number; toolCalls: number; hasFinal: boolean; errors: string[]; warnings: string[] }
-  | { kind: "tool"; step: number; name: string; args: Record<string, unknown>; ok: boolean; durationMs: number; resultPreview: string }
+  | { kind: "tool"; request_id: string; step: number; name: string; args: Record<string, unknown>; ok: boolean; durationMs: number; resultPreview: string }
   | { kind: "answer"; stoppedBy: "final" | "max_steps" | "error"; answer: string; totalMs: number };
 
 export interface TransitionRecord extends Record<string, unknown> {
@@ -90,3 +91,6 @@ function describeEffect(e: Effect): string {
 }
 
 export const preview = (s: string, n = 120) => s.replace(/\s+/g, " ").slice(0, n);
+
+/** 一次外部调用（模型 / 工具）一个 id：`r-` + 短随机；runtime 生成，只用来在 trace 里把 effect 与调用对上 */
+export const newRequestId = () => `r-${randomBytes(6).toString("hex")}`;

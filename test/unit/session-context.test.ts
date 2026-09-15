@@ -159,4 +159,14 @@ describe("trace：以转移为单位，序列对答案卷", () => {
     // 不再有独立的 stop 记录：终态转移就是结束记录
     expect(trace.records.at(-1)?.to).toBe("done");
   });
+
+  it("A2：每次模型调用、每次工具调用各有一个 request_id（r- 开头），全轮唯一", async () => {
+    const trace = new MemoryTraceSink();
+    const llm = new FakeLLM([tc("search", { query: "上海" }) + tc("calculator", { expression: "1+1" }), "<final>2</final>"]);
+    await createAgent({ llm, trace }).run({ userId: "u", sessionId: "s", input: "1+1" });
+    const ids = [...trace.effects("llm"), ...trace.effects("tool")].map((e) => (e as any).request_id);
+    expect(ids.length).toBe(4);
+    for (const id of ids) expect(id).toMatch(/^r-[0-9a-z]{6,}$/);
+    expect(new Set(ids).size).toBe(4);
+  });
 });
