@@ -5,6 +5,7 @@ import { searchTool } from "../tools/search.js";
 import { createTodoTool } from "../tools/todo.js";
 import { createRememberTool } from "../tools/remember.js";
 import { MemorySessionStore, type SessionStore } from "../session/store.js";
+import { MemoryTranscriptStore, type TranscriptLine, type TranscriptStore } from "../review/transcript.js";
 import { MemoryUserMemoryStore, renderMemory, type UserMemoryStore } from "../memory/user-memory.js";
 import { assembleMessages, compactSession, DEFAULT_CONTEXT, needsCompaction, stripThink, type ContextOptions } from "../session/context.js";
 import { parseAssistantOutput, type ParsedOutput, type ParsedToolCall } from "../protocol/parser.js";
@@ -20,6 +21,8 @@ export interface AgentOptions {
   sessions?: SessionStore;
   memory?: UserMemoryStore;
   trace?: TraceSink;
+  /** 逐轮转写（Raw 层，#19）：轮末把本轮消息原样追加，不压缩；默认内存版，CLI 传文件版 `data/transcripts` */
+  transcripts?: TranscriptStore;
   /** 一次用户输入内最多经过多少次 LLM 决策（每次决策可带多个工具调用）——防死循环的安全阀 */
   maxToolSteps?: number;
   /** LLM 调用失败的重试次数（只对可重试类生效：限流 / 服务端 / 超时 / 网络 / 未知；认证 / 请求格式 / 不存在一次即终） */
@@ -100,6 +103,7 @@ export function createAgent(o: AgentOptions) {
   const tools = o.tools ?? defaultTools(memory);
   const sessions = o.sessions ?? new MemorySessionStore();
   const trace = o.trace ?? new MemoryTraceSink();
+  const transcripts = o.transcripts ?? new MemoryTranscriptStore();
   const maxToolSteps = o.maxToolSteps ?? 8;
   const llmRetries = o.llmRetries ?? 2;
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
@@ -132,6 +136,7 @@ export function createAgent(o: AgentOptions) {
 
   async function run({ userId, sessionId, input }: RunInput): Promise<RunResult> {
     const startedAt = Date.now();
+    const startedAtIso = new Date(startedAt).toISOString();
     const session = sessions.get(userId, sessionId);
     session.turns += 1;
     const turn = session.turns;
@@ -185,8 +190,12 @@ export function createAgent(o: AgentOptions) {
           (opts.error ?? "未知错误");
         // 原生模式的历史里不出现标签：模型没被教过 <final>，回放时也不该看到
         working.push({ role: "assistant", content: mode === "native" ? answer : `<final>${answer}</final>` });
-        session.history.push(...stripThink(working));
+        const finished = stripThink(working);
+        session.history.push(...finished);
         sessions.save(session);
+        // 转写与写进 history 的是同一批消息：user 的 ts = 轮开始，其余 = 轮结束
+        const endedAt = new Date().toISOString();
+        transcripts.append(finished.map((m): TranscriptLine => ({ ts: m.role === "user" ? startedAtIso : endedAt, userId, sessionId, turn, traceId, role: m.role, content: m.content, ...(m.name !== undefined ? { name: m.name } : {}) })));
         all.push({ kind: "answer", stoppedBy, answer, totalMs: Date.now() - startedAt });
         result = { answer, steps, stoppedBy, turn, traceId };
       }
@@ -276,5 +285,5 @@ export function createAgent(o: AgentOptions) {
     return result!;
   }
 
-  return { run, tools, sessions, memory, trace };
+  return { run, tools, sessions, memory, trace, transcripts };
 }

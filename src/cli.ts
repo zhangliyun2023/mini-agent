@@ -6,6 +6,7 @@ import { createAgent, defaultTools } from "./runtime/agent.js";
 import { FileSessionStore } from "./session/store.js";
 import { FileUserMemoryStore } from "./memory/user-memory.js";
 import { FileTraceSink } from "./runtime/trace.js";
+import { FileTranscriptStore } from "./review/transcript.js";
 
 // 用法：npm run chat -- --user A --session w1 [--native-tools] [--quiet]
 // 多开终端、不同 --session 就是「同一用户的两个窗口」；同一 --session 再次进入即接着聊。
@@ -25,6 +26,7 @@ const agent = createAgent({
   memory,
   sessions: new FileSessionStore("data/sessions"),
   trace: new FileTraceSink("trace", !args.quiet),
+  transcripts: new FileTranscriptStore("data/transcripts"),
 });
 
 stderr.write(`mini-agent · model=${cfg.model} · user=${userId} · session=${sessionId} · ${args["native-tools"] ? "native function calling" : "文本协议"}\n输入 /exit 退出，/sessions 列出本用户的会话\n`);
