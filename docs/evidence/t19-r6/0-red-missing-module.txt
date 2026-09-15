@@ -1,0 +1,27 @@
+
+ RUN  v3.2.7 /private/tmp/ma-r6-run
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/unit/review-run.test.ts [ test/unit/review-run.test.ts ]
+Error: Cannot find module '../../src/review/journal.js' imported from '/private/tmp/ma-r6-run/test/unit/review-run.test.ts'
+ ❯ test/unit/review-run.test.ts:8:1
+      6| import { FileUserMemoryStore } from "../../src/memory/user-memory.js";
+      7| import { FileSessionStore, type Session } from "../../src/session/stor…
+      8| import { FileReviewJournalStore } from "../../src/review/journal.js";
+       | ^
+      9| import { runReview, transcriptReader, type ConsolidateFn, type Consoli…
+     10| import type { Consolidation, MemoryEntry, ReviewJournal } from "../../…
+
+Caused by: Error: Failed to load url ../../src/review/journal.js (resolved id: ../../src/review/journal.js) in /private/tmp/ma-r6-run/test/unit/review-run.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../../Users/zhangly04/dev/mini-agent/node_modules/vite/dist/node/chunks/config.js:22739:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  04:38:13
+   Duration  236ms (transform 30ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 26ms)
+
