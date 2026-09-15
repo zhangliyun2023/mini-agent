@@ -1,0 +1,7 @@
+{
+  "note": "答案卷：每条旅程 = 一台机器上按顺序发生的转移 id（同一 trace_id）。对答案不看源码：node scripts/machine-check.mjs --rows <observed.jsonl>（或 --db <sqlite>）。ids 必须存在于对应机器且首尾相接（tests/machines/contracts.test.mjs 校验）。",
+  "journeys": {
+    "example-submit-success": {"feature": "example", "expect": ["submit", "api-success"]},
+    "example-submit-retry": {"feature": "example", "expect": ["submit", "api-failed", "retry", "api-success"]}
+  }
+}

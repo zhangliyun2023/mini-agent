@@ -1,5 +1,5 @@
 /**
- * 表驱动状态机解释器（TS 版，语义与 adopt-ai-era 的 machine.example.mjs 一致）。
+ * 表驱动状态机解释器（TS 版，语义与 machine-contract 的 machine.example.mjs 一致）。
  * 表是产品定义；这是唯一解释器，被 runtime、生成器、契约投影、测试共用。
  *
  * - interpret(state, event, facts)：同格多行按表顺序取第一条 guard 命中；没有行 → unknown（UNMODELED），状态停留。

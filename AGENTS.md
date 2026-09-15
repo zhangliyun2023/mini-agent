@@ -142,3 +142,24 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 - **not_run**：没条件跑（如无 key）；**skipped**：跑了但主动跳过（`describe.skipIf`）。两者都不是通过，报告里分开写。
 - **变异**：对最承重的不变量做一次性变异（改一行 → 跑 → 记录红 → 还原），红的输出入 `docs/evidence/`；没红过的不算证据。
 - **基线失败**只能来自自己刚跑过的对照，不转述。
+
+## Agent skills / tracker / 标签
+
+- 本仓自带项目级 skill：`.claude/skills/ai-era-setup/`（技能族 **ai-era-skills 2.0.0** 的第一次入口，含 runtime 分支的换算表、TS 解释器与判分参考；`WIKI.md` 是维护者读的累积知识，做票的 agent 不读）。全族其余技能装在使用者的全局目录。
+- Issue tracker：GitHub `zhangliyun2023/mini-agent`；可做的票贴 `ready-for-agent`；认领 = `/implement #<n>`。
+- 领域文档：单上下文——本文件 + `docs/`；词汇表在 `docs/SPEC.md`，决定在 `docs/product/SPEC-state-machines.md`。
+
+## 什么时候用哪个 skill
+
+| 你在做的事 | 先做 | 取哪个 skill |
+|---|---|---|
+| 改用户可见行为 | 先改 `contracts/*.machine.ts` → `npm run contracts:gen` | `machine-contract` |
+| 加日志 / 打点 / 要回放一次运行 | — | `trace-transitions` |
+| 写测试 / 复现一次失败 | — | `model-e2e` + `tdd` |
+| 跑完一次流程问「对不对」 | — | `answer-key`（答案卷 `contracts/journeys.json`） |
+| 写报告 / 要说「已验证」 | — | `honest-evidence` |
+| 审 diff | — | `code-review` |
+| 改本文件 / skill 文档 | — | `writing-for-agents` |
+
+技能族版本：ai-era-skills 2.0.0（升版是显式动作，由维护者同步，不悄悄变）。
+

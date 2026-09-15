@@ -90,7 +90,7 @@ epic 分支 `claude/epic-cerf-44n1c4` 上审计后补的三个提交与 #6 冲�
 
 ## 5. 方法论回流（Wiki 层，2026-09-15）
 
-这个仓库不只是被方法论指导，也反过来改了方法论。做法参考 WikiSkill（arXiv 2608.27454）的三层：**Raw**（不可变轨迹：trace JSONL、`docs/evidence/`、TEST_REPORT 各轮「红过什么」、本文 §3 的判断点、issue #1 / #5 / #8 的拍板）→ **Wiki**（跨轮累积的失败模式、成功策略、提案历史含被拒项、验证结果：`.claude/skills/adopt-ai-era-runtime/WIKI.md`）→ **Skill**（当前生效的规则：`.claude/skills/adopt-ai-era-runtime/SKILL.md`，版本见 frontmatter）。
+这个仓库不只是被方法论指导，也反过来改了方法论。做法参考 WikiSkill（arXiv 2608.27454）的三层：**Raw**（不可变轨迹：trace JSONL、`docs/evidence/`、TEST_REPORT 各轮「红过什么」、本文 §3 的判断点、issue #1 / #5 / #8 的拍板）→ **Wiki**（跨轮累积的失败模式、成功策略、提案历史含被拒项、验证结果：`.claude/skills/ai-era-setup/WIKI.md`）→ **Skill**（当前生效的规则：`.claude/skills/ai-era-setup/SKILL.md`，2.0.0 起五个入口合一、四个日常动词族化，版本见 frontmatter）。
 
 规则：**做票的 agent 不读 Wiki**，只拿 issue + SKILL.md + AGENTS.md——否则它直接照抄，轨迹就没有信息量；Wiki 由维护者在 PR 审阅之后写，再决定哪些提案进 skill。本仓三个 PR（#2 / #6 / #9）都是这么跑的。
 

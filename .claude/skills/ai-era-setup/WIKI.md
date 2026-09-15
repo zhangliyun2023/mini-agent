@@ -1,8 +1,8 @@
 # WIKI —— 维护者的累积知识
 
-这是给**改 SKILL.md 的维护者**读的累积知识：每一条都是一次真实轨迹（Raw：仓库里的 TEST_REPORT / NEXT_STEPS / AI-LOG / PR 审阅 / issue）沉淀下来的判断，带出处与状态。**执行 agent（做票的）不读这份文件**——它只拿 SKILL.md 与仓库 `AGENTS.md`；派工 prompt 只内联 SKILL.md 相关段，不内联本文件（原因见 `skills/ai-era/SKILL.md`「维护」节）。**被拒的提案也留在这里**，标「已拒：原因」，免得下一轮再提一遍。
+这是给**改 SKILL.md 的维护者**读的累积知识：每一条都是一次真实轨迹（Raw：仓库里的 TEST_REPORT / NEXT_STEPS / AI-LOG / PR 审阅 / issue）沉淀下来的判断，带出处与状态。**执行 agent（做票的）不读这份文件**——它只拿 SKILL.md 与仓库 `AGENTS.md`；派工 prompt 只内联 SKILL.md 相关段，不内联本文件（原因见 `skills/ai-era-maintain/SKILL.md`）。**被拒的提案也留在这里**，标「已拒：原因」，免得下一轮再提一遍。
 
-三层的分工（WikiSkill，arXiv 2608.27454）：Raw 轨迹在各仓库；Wiki（本文件）是跨仓库累积的知识；Skill（`skills/*/SKILL.md`）是当前生效的规则。Wiki → Skill 的通道只有一条：提案 → `evals/PROBES.md` 探针 → 升版，见 `skills/ai-era/SKILL.md`「维护」节。
+三层的分工（WikiSkill，arXiv 2608.27454）：Raw 轨迹在各仓库；Wiki（本文件）是跨仓库累积的知识；Skill（`skills/*/SKILL.md`）是当前生效的规则。Wiki → Skill 的通道只有一条：提案 → `evals/PROBES.md` 探针 → 升版，见 `skills/ai-era-maintain/SKILL.md`。
 
 条目格式：`- **一句话** — 出处（仓库 · 提交/PR/issue · 日期）· 状态（已进 skill x.y.z / 待拍板 / 已拒：原因）`。
 
@@ -39,6 +39,8 @@
 - **对照报告提出的 6 处语义分歧**：终态吸收态 vs 禁止出边；步数上限在解析后 vs 工具后；rejected/noop 词汇 vs 全 allowed 自环；行显式 id vs 派生 id；表外名字抛错 vs 返回 unknown；状态对象 vs 字符串数组 — runtime 参照仓 · 对照报告 · 2026-09-15 · 状态：待拍板（维护者当日讨论中；拍板前 `machine-contract` 不改）
 - **对照报告列出的 4 项未做产物**：request_id；白名单落盘 vs answer 全文；journeys.json + 三态判分；随机探索 / 变异 / gate.sh / ARCHITECTURE 机器清单 / not_run 词汇 — runtime 参照仓 · 对照报告 · 2026-09-15 · 状态：待拍板（仓库内欠账，是否要求 `adopt-ai-era-runtime` 切片清单强制含这几项，一并拍）
 
+- **2.0.0 重排：四动词是日常、心得是默认、AGENTS.md 是分发器**——`ai-era` / `setup-ai-era` / `adopt-ai-era` / `adopt-ai-era-runtime` / `agents-md` 合成 `ai-era-setup`（Web / runtime 是分支不是技能），四个动词族化，新增 `ai-era-maintain`，AGENTS.md 加第 9 节「什么时候用哪个 skill」表与版本行 — ai-era-skills · 2026-09-15 · 状态：作者 2026-09-15 提出并进 2.0.0；**未经探针**
+
 ## D. 验证结果
 
 - **1.1.0：无探针。** Web 参照仓 三天数字（205 单测、E2E 25 步、Storybook 18、14 张表）是 1.0.0 时期的结果，不能算 1.1.0 的验证 — ai-era-skills · 2026-09-14 · 诚实写明：1.1.0 的七条改动没有任何一条被独立验证过
@@ -47,3 +49,5 @@
 - adopt-ai-era-runtime 1.2.0 + issue #5 拍板：runtime 参照仓 PR #6 十片全绿（113 单测、契约 0 漂移、live 5/5 一次）；随机探索三张表零违反、抠行探针 ddmin 缩到 1 步；变异只在契约层红 — 2026-09-15 · 第一次完整消费 A1–C2 切片，未跑探针
 - runtime 参照仓 PR #9（移植 epic 分支三提交）：第五条不变量 effectsDeclared 让「表 · 代码 · trace」三者的第三条边可执行；离线 oracle 一跑就点名了 14 个旧格式文件——证据文件也要有版本 — runtime 参照仓 · #8 · 2026-09-15 · 125 单测、live 5/5 afterAll 0 违反
 - runtime 参照仓 v0.4：四票并行约 10 分钟各自完成、审阅 + rebase + 合并约 40 分钟；171 单测、live 5/5、judge.py 54 轮全 passed — 2026-09-15
+
+- **2.0.0：无探针。** 结构重排 + 四动词加族内约定段，属执行规则改动，但探针仍只定义未跑；1.1.0 → 2.0.0 之间的每一次升版都未经探针 — ai-era-skills · 2026-09-15
