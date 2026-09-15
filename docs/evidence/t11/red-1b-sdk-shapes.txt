@@ -1,0 +1,51 @@
+
+ RUN  v3.2.7 /private/tmp/ma-retry
+
+ ❯ test/t11/llm-errors.test.ts (21 tests | 1 failed) 4ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: Incorrect API key → auth 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: forbidden → auth 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: bad request → bad_request 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: unprocessable → bad_request 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: model not found → not_found 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: rate limited → rate_limited 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: upstream down → server 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: internal → server 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: socket timed out → timeout 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > APIConnectionTimeoutError: Request timed out. → timeout 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: Connection error. → network 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > APIConnectionError: fetch failed → network 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: fetch failed → network 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: something odd → unknown 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > not even an Error → unknown 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: 401 Incorrect API key → auth 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: 429 Rate limit reached → rate_limited 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > Error: Request timed out. → timeout 0ms
+   × classifyLlmError：按错误类型分类（#11） > Error: Connection error. → network 2ms
+     → expected 'unknown' to be 'network' // Object.is equality
+   ✓ classifyLlmError：按错误类型分类（#11） > status 优先于 code：带 status 的错误不被 code 覆盖 0ms
+   ✓ classifyLlmError：按错误类型分类（#11） > 只有认证 / 请求格式 / 不存在三类不重试 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/t11/llm-errors.test.ts > classifyLlmError：按错误类型分类（#11） > Error: Connection error. → network
+AssertionError: expected 'unknown' to be 'network' // Object.is equality
+
+Expected: [32m"network"[39m
+Received: [31m"unknown"[39m
+
+ ❯ test/t11/llm-errors.test.ts:32:33
+     30|     [new APIConnectionError({}), "network"],
+     31|   ])("%s → %s", (e, cls) => { // ×19
+     32|     expect(classifyLlmError(e)).toBe(cls);
+       |                                 ^
+     33|   });
+     34| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 20 passed (21)
+   Start at  01:50:44
+   Duration  234ms (transform 22ms, setup 0ms, collect 40ms, tests 4ms, environment 0ms, prepare 46ms)
+

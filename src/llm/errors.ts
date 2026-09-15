@@ -43,7 +43,8 @@ export function classifyLlmError(e: unknown): LlmErrorClass {
   if (/connection/i.test(name)) return "network";
   const message = typeof err.message === "string" ? err.message : "";
   if (/timed? ?out/i.test(message)) return "timeout";
-  if (/fetch failed|socket hang up|network/i.test(message)) return "network";
+  // openai SDK 不设 name：APIConnectionError 只有 message "Connection error."
+  if (/connection error|fetch failed|socket hang up|network/i.test(message)) return "network";
   return "unknown";
 }
 

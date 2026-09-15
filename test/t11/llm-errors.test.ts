@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { APIConnectionError, APIConnectionTimeoutError, AuthenticationError, RateLimitError } from "openai";
 import { classifyLlmError, isRetryable, type LlmErrorClass } from "../../src/llm/errors.js";
 
 // #11：错误分类是纯函数——输入看 status / code / name / message，输出八类之一；
@@ -22,7 +23,12 @@ describe("classifyLlmError：按错误类型分类（#11）", () => {
     [err("fetch failed", { cause: { code: "ECONNREFUSED" } }), "network"],
     [err("something odd"), "unknown"],
     ["not even an Error", "unknown"],
-  ])("%s → %s", (e, cls) => { // ×15
+    // 真实 SDK 抛出的形状（openai 不设 name，只有 status / code / message）
+    [new AuthenticationError(401, { message: "Incorrect API key" }, "Incorrect API key", new Headers()), "auth"],
+    [new RateLimitError(429, undefined, "Rate limit reached", new Headers()), "rate_limited"],
+    [new APIConnectionTimeoutError(), "timeout"],
+    [new APIConnectionError({}), "network"],
+  ])("%s → %s", (e, cls) => { // ×19
     expect(classifyLlmError(e)).toBe(cls);
   });
 
