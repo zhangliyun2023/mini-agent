@@ -27,28 +27,37 @@ export type Effect =
   | { kind: "tool"; request_id: string; step: number; name: string; args: Record<string, unknown>; ok: boolean; durationMs: number; resultPreview: string }
   | { kind: "answer"; stoppedBy: "final" | "max_steps" | "error"; answer: string; totalMs: number };
 
-export interface TransitionRecord extends Record<string, unknown> {
+/** 任何一张表的一次转移记录都长这样（turn / review 各自收窄 from / to / event / effects）；formatTransition、FileTraceSink 只依赖这一层 */
+export interface BaseTransitionRecord extends Record<string, unknown> {
   ts: string;
-  /** 用户/会话/轮次 */
+  /** 一个用户意图一个 trace_id：turn 是 用户/会话/轮次，review 是 review/用户/日期 */
   trace_id: string;
   /** 哪张表（答案卷按 feature 过滤） */
   feature: string;
-  userId: string;
-  sessionId: string;
-  turn: number;
-  /** 本轮第几条转移，从 1 起 */
+  /** 本次第几条转移，从 1 起 */
   seq: number;
-  /** 解释时的 facts.step（本轮已发起的模型调用次数） */
-  step: number;
-  from: TurnState;
-  to: TurnState;
-  event: TurnEvent;
+  from: string;
+  to: string;
+  event: string;
   status: Verdict;
   reason?: string;
   /** blocked 时的机器可读原因（行的 reject_code） */
   reject_code?: string;
   /** 命中的行 id；unknown 为 null */
   transition: string | null;
+  effects: Array<{ kind: string }>;
+}
+
+/** turn 表的转移记录 */
+export interface TransitionRecord extends BaseTransitionRecord {
+  userId: string;
+  sessionId: string;
+  turn: number;
+  /** 解释时的 facts.step（本轮已发起的模型调用次数） */
+  step: number;
+  from: TurnState;
+  to: TurnState;
+  event: TurnEvent;
   effects: Effect[];
 }
 
@@ -77,12 +86,13 @@ export class MemoryTraceSink implements TraceSink {
   }
 }
 
+/** 文件 sink：一个目录、按 `stem(record)` 分文件（turn 默认按 sessionId；review 用 `<user>-<date>`，目录 trace/reviews/，见 src/review/trace.ts） */
 export class FileTraceSink implements TraceSink {
-  constructor(private dir: string, private echo = false) {}
-  write(r: TransitionRecord) {
-    appendJsonl(`${this.dir}/${encodeURIComponent(r.sessionId)}.jsonl`, r);
+  constructor(private dir: string, private echo = false, private stem: (r: BaseTransitionRecord) => string = (r) => String(r.sessionId)) {}
+  write(r: BaseTransitionRecord) {
+    appendJsonl(`${this.dir}/${encodeURIComponent(this.stem(r))}.jsonl`, r);
     if (this.echo) {
-      const fx = r.effects.map(describeEffect).filter(Boolean).join(" · ");
+      const fx = r.effects.map((e) => describeEffect(e as Effect)).filter(Boolean).join(" · ");
       process.stderr.write(`  ⎿ #${r.seq} ${formatTransition(r)}${fx ? " · " + fx : ""}\n`);
     }
   }
@@ -102,6 +112,8 @@ function describeEffect(e: Effect): string {
       return e.errors.length || e.warnings.length ? `parse ${[...e.errors, ...e.warnings].join(" | ")}` : "";
     case "answer":
       return `answer(${e.stoppedBy}) ${e.totalMs}ms`;
+    default:
+      return (e as { kind: string }).kind;
   }
 }
 

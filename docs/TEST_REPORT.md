@@ -7,8 +7,8 @@
 | 命令 | 结果 | 备注 |
 |---|---|---|
 | `npm run typecheck` | 通过 | `tsc --noEmit`，含 `contracts/` `scripts/` |
-| `npm run contracts:check` | 3 份契约 0 漂移 | turn / session / session-runtime |
-| `npm test` | **25 文件 235 条全绿**（#19 R8 复盘 CLI 后；R6 后 24 文件 224 条；R1–R5 后 22 文件 205 条；#12 记忆上限后 17 文件 171 条；v0.4 解析器补丁后 128 条；v0.3 125 条见 §8；历史：v0.1 9 文件 89 条 → v0.2 11 文件 113 条） | 不需要 key。**逐文件条数只写在下面这张表里**，`test/unit/docs.test.ts` 用源码 `it(` 静态计数（`it.each` 行按 `// ×N` 标记展开）逐文件对账，总数与文件数也对；其他文档不再另写数字 |
+| `npm run contracts:check` | 4 份契约 0 漂移 | turn / session / session-runtime / review |
+| `npm test` | **27 文件 250 条全绿**（#19 R7 复盘状态表 + R8 CLI 后；R6 后 24 文件 224 条；R1–R5 后 22 文件 205 条） | 不需要 key。**逐文件条数只写在下面这张表里**，`test/unit/docs.test.ts` 用源码静态计数逐文件对账 |
 | `npm run test:live` | **5/5**（v0.3，UTC 06:27，18.4s）；afterAll 不变量检查真跑：7 文件 / 9 轮 / 42 条转移，25 allowed + 17 noop，0 unknown，0 违反 | 本机有 key；详见 §3 与 §8 |
 
 ### 条数（唯一事实源）
@@ -16,10 +16,10 @@
 | 文件 | 层 | 条数 |
 |---|---|---|
 | `test/unit/machine.test.ts` | 纯函数 | 10 |
-| `test/unit/contracts.test.ts` | 纯函数 | 9 |
+| `test/unit/contracts.test.ts` | 纯函数 | 12 |
 | `test/unit/generator.test.ts` | 纯函数 6 + 假模型 10 | 16 |
 | `test/unit/journeys.test.ts` | 纯函数 3 + 假模型 5 | 8 |
-| `test/unit/explore.test.ts` | 纯函数 | 6 |
+| `test/unit/explore.test.ts` | 纯函数 | 7 |
 | `test/unit/parser.test.ts` | 纯函数 | 16 |
 | `test/unit/tools.test.ts` | 纯函数 | 18 |
 | `test/unit/docs.test.ts` | 纯函数 | 8 |
@@ -33,14 +33,16 @@
 | `test/unit/session-context.test.ts` | 假模型 | 14 |
 | `test/unit/invariants.test.ts` | 假模型（含真落盘） | 12 |
 | `test/unit/transcript.test.ts` | 假模型（含真落盘） | 4 |
-| 合计 | 25 文件 | 235 |
+| 合计 | 27 文件 | 250 |
 | `test/unit/review-present.test.ts` | 纯函数 | 8 |
 | `test/unit/review-window.test.ts` | 纯函数 | 8 |
 | `test/unit/review-collect.test.ts` | 纯函数（夹具 TranscriptReader） | 8 |
 | `test/unit/memory-entries.test.ts` | 假模型 + 纯函数 + 真落盘 | 6 |
 | `test/unit/review-consolidate.test.ts` | 假模型（FakeLLM）+ 纯函数 | 9 |
-| `test/unit/review-run.test.ts` | 夹具整合器 + 假模型 + 真落盘 | 10 |
+| `test/unit/review-run.test.ts` | 夹具整合器 + 假模型 + 真落盘 | 11 |
 | `test/unit/review-cli.test.ts` | 子进程真跑 + 假模型 + 真落盘 | 11 |
+| `test/unit/review-machine.test.ts` | 夹具整合器 + 残缺表 + 真落盘 | 2 |
+| `test/unit/review-invariants.test.ts` | 夹具整合器 + 真落盘 | 8 |
 
 ## 1. 第一层：纯函数通过（不碰模型、不碰 runtime）
 

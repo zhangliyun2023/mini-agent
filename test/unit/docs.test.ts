@@ -55,7 +55,7 @@ describe("AGENTS.md 守文档", () => {
   it("C1：docs/ARCHITECTURE.md 的机器清单 == contracts/*.machine.ts（表 · 接法 · 谁证明），且每张表的证明文件在盘上", () => {
     const arch = readFileSync("docs/ARCHITECTURE.md", "utf8");
     const files = readdirSync("contracts").filter((f) => f.endsWith(".machine.ts")).map((f) => f.replace(".machine.ts", ""));
-    expect(files.length).toBe(3);
+    expect(files.length).toBe(4);
     for (const f of files) expect(arch, `机器清单少了 ${f}`).toMatch(new RegExp(`\\| \`${f}\` \\| (闸|影子|旅程) \\|`));
     const listed = [...arch.matchAll(/^\| `([a-z-]+)` \| (闸|影子|旅程) \|([^\n]*)$/gm)];
     expect(listed.map((m) => m[1]).sort()).toEqual([...files].sort());

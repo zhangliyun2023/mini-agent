@@ -10,7 +10,9 @@ import { runReview, transcriptReader, type ConsolidateFn, type ConsolidateInput 
 import type { Consolidation, MemoryEntry, ReviewJournal } from "../../src/review/types.js";
 import { FakeLLM } from "../../src/llm/fake.js";
 import { createAgent } from "../../src/runtime/agent.js";
-import { FileTraceSink, type TransitionRecord } from "../../src/runtime/trace.js";
+import { FileTraceSink, formatTransition, type TransitionRecord } from "../../src/runtime/trace.js";
+import { reviewTraceSink, type ReviewTransitionRecord } from "../../src/review/trace.js";
+import { reviewMachine, TERMINAL_STATUS } from "../../contracts/review.machine.js";
 import { answerAligned, checkTurnInvariants } from "../../src/machine/invariants.js";
 
 // #19 R6：复盘编排（① 两种产物 / ③ 幂等键 / ⑥ 三态 / ⑩ 交付 / ⑪ 注入不改接收人 / Q8 ④ 跳过 review_brief）。
@@ -211,5 +213,66 @@ describe("Q8 不变量 ④：历史末条是 review_brief 时取「最近一轮�
     const turn2 = readTrace(dir).filter((r) => r.trace_id === `${USER}/w1/2`);
     const all = checkTurnInvariants({ records: turn2, result: r2, history: s2.history });
     expect(all.every((x) => x.violations.length === 0), JSON.stringify(all)).toBe(true);
+  });
+});
+
+describe("R7 接表（闸）：每一步先 interpret，一次 interpret 一行落 trace/reviews/<user>-<date>.jsonl", () => {
+  /** 答案卷：场景 → 行 id 序列（非 allowed 追加 ` [status]`），与 MemoryTraceSink.sequence() / journeys.json 同格式 */
+  const ANSWER_KEY = {
+    ok_delivered: ["rv-start", "rv-collected-full", "rv-consolidated", "rv-presented [noop]", "rv-delivered"],
+    no_chat: ["rv-start", "rv-collected-none"],
+    partial_read: ["rv-start", "rv-collected-partial", "rv-consolidated", "rv-presented [noop]", "rv-delivered-partial"],
+    unreadable_only: ["rv-start", "rv-collected-unreadable"],
+    replay_ok: ["rv-replay-ok"],
+    replay_no_chat: ["rv-replay-no-chat"],
+    replay_partial: ["rv-replay-partial"],
+  };
+  const traceFile = (dir: string) => join(dir, "trace", "reviews", `${USER}-${DATE}.jsonl`);
+  const readReviewTrace = (dir: string, attempt: number) =>
+    readFileSync(traceFile(dir), "utf8").trim().split("\n").map((l) => JSON.parse(l) as ReviewTransitionRecord).filter((r) => r.attempt === attempt);
+  const declared = (id: string) => reviewMachine.rows.find((r) => r.id === id)!.effects!;
+
+  it("trace 序列 == 答案卷：ok 交付 / no_chat / partial_read / 三种同键重跑，每次 interpret 一行落 trace/reviews/<user>-<date>.jsonl，行 id 序列与答案卷逐字相等", async () => {
+    // Given 四种昨天：可读 / 没聊 / 一半坏 / 全坏；When 各跑一次再各重跑一次；Then 盘上 trace 的行 id 序列 == 答案卷，且每条记录的字段与终态 ↔ journal.status 对得上
+    const cases: Array<{ key: keyof typeof ANSWER_KEY; replayKey: keyof typeof ANSWER_KEY; seed: (d: ReturnType<typeof setup>) => void; deliverTo?: string }> = [
+      { key: "ok_delivered", replayKey: "replay_ok", deliverTo: "w1", seed: (d) => d.transcripts.append([line("s1", 1, "user", "我 9 月 20 日要交报告"), line("s1", 1, "assistant", "<final>记下了</final>")]) },
+      { key: "no_chat", replayKey: "replay_no_chat", seed: (d) => d.transcripts.append([line("s1", 1, "user", "前天说的", "2026-09-13T10:00:00+08:00")]) },
+      { key: "partial_read", replayKey: "replay_partial", deliverTo: "w1", seed: (d) => { d.transcripts.append([line("s1", 1, "user", "我 9 月 20 日要交报告")]); appendFileSync(join(d.dir, "transcripts", USER, "s-bad.jsonl"), "not json\n"); } },
+      { key: "unreadable_only", replayKey: "replay_partial", seed: (d) => { mkdirSync(join(d.dir, "transcripts", USER), { recursive: true }); appendFileSync(join(d.dir, "transcripts", USER, "s-bad.jsonl"), "not json\n"); } },
+    ];
+    for (const c of cases) {
+      const d = setup();
+      c.seed(d);
+      const deps = { transcripts: d.transcripts, memory: d.memory, sessions: d.sessions, journal: d.journal, consolidate: fakeConsolidate(NORMAL).fn, trace: reviewTraceSink(join(d.dir, "trace", "reviews")) };
+      const first = await runReview(deps, { userId: USER, date: DATE, tz: TZ, deliverTo: c.deliverTo });
+      const second = await runReview(deps, { userId: USER, date: DATE, tz: TZ, deliverTo: c.deliverTo });
+      expect(existsSync(traceFile(d.dir)), c.key).toBe(true);
+      const r1 = readReviewTrace(d.dir, 1);
+      const r2 = readReviewTrace(d.dir, 2);
+      expect(r1.map(formatTransition), c.key).toEqual(ANSWER_KEY[c.key]);
+      expect(r2.map(formatTransition), c.replayKey).toEqual(ANSWER_KEY[c.replayKey]);
+      for (const [records, journal] of [[r1, first.journal], [r2, second.journal]] as const) {
+        // 每条记录：同一个 trace_id、feature review、seq 从 1 连续、ISO ts、行 id 与 status 成对；unknown 一条都没有
+        expect(records.map((r) => [r.trace_id, r.feature, r.userId, r.date])).toEqual(records.map(() => [`review/${USER}/${DATE}`, "review", USER, DATE]));
+        expect(records.map((r) => r.seq)).toEqual(records.map((_, i) => i + 1));
+        expect(records.every((r) => !Number.isNaN(Date.parse(r.ts)))).toBe(true);
+        expect(records.filter((r) => r.status === "unknown")).toEqual([]);
+        // 副作用对账：记录上出现的 effects[].kind ⊆ 命中行声明的 effects；journal 副作用只在终态转移上
+        for (const r of records) {
+          const kinds = [...new Set(r.effects.map((e) => e.kind))];
+          expect(kinds.filter((k) => !declared(r.transition!).includes(k)), `${c.key} #${r.seq} ${r.transition}`).toEqual([]);
+          expect(kinds.includes("journal"), `${c.key} #${r.seq}`).toBe(reviewMachine.isTerminal(r.to));
+        }
+        // 终态 ↔ journal.status 一一对应，末条落终态且恰一条
+        const terminals = records.filter((r) => reviewMachine.isTerminal(r.to));
+        expect(terminals).toHaveLength(1);
+        expect(records.at(-1)!.to).toBe(terminals[0].to);
+        expect(TERMINAL_STATUS[terminals[0].to as keyof typeof TERMINAL_STATUS], c.key).toBe(journal.status);
+        expect(terminals[0].effects.find((e) => e.kind === "journal")).toMatchObject({ kind: "journal", status: journal.status, attempts: journal.attempts });
+      }
+      // 白名单落盘：trace 里不出现记忆值、亮点原文、brief 全文
+      const raw = readFileSync(traceFile(d.dir), "utf8");
+      for (const secret of ["9 月 20 日交报告", "PR #19", "把复盘报告交给老板", "今天到期："]) expect(raw, `${c.key} 泄露 ${secret}`).not.toContain(secret);
+    }
   });
 });
