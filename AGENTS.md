@@ -61,7 +61,8 @@ src/machine/
   generator.ts                 从表 + runner 协议 BFS 出路径清单（答案卷）
   check.ts                     对答案：checkJourney 三态 + unknownRows + validateJourney
   explore.ts                   随机探索：种子游走 + 通用不变量 + ddmin
-  invariants.ts                四条 P0 不变量的独立 oracle
+  invariants.ts                五条 P0 不变量的独立 oracle（含 ⑤ 副作用对账）+ checkTraceOnlyInvariants（只凭 trace 判 ① ② ③ ⑤ + unknown）
+  evidence.ts                  读 JSONL 按 trace_id 分轮过不变量：离线过 evals/live-trace/，live 收尾 afterAll 也过
 src/runtime/
   agent.ts                     表驱动的 turn runner（闸）：transition() 先 interpret，allowed → apply，blocked → onBlocked
   trace.ts                     打点单位 = 一次转移 {trace_id, feature, transition, status, reject_code, effects[request_id]}
@@ -83,13 +84,14 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 | `test/unit/journeys.test.ts` | 纯函数 + 假模型 | journeys.json 与表拴在一起；生成器路径与旅程集合相等；checkJourney 三态；unknownRows |
 | `test/unit/explore.test.ts` | 纯函数 | 随机探索：可复现、guard 洞点名 + ddmin、三张表零违反 |
 | `test/unit/generator.test.ts` | 纯函数 + 假模型 | 生成 10 条路径、gaps 为空、生成集合 ⊆ 手写覆盖；答案卷是行 id 序列；每条路径 FakeLLM 真跑，trace 序列 == 答案卷 |
-| `test/unit/invariants.test.ts` | 假模型（含真落盘） | 四条 P0 不变量各一红一绿；④ 用 FileSessionStore + FileTraceSink；文件持久化接着聊 |
+| `test/unit/invariants.test.ts` | 假模型（含真落盘） | 五条 P0 不变量各一红一绿（⑤ 另有反向红：删表上声明 → 真实记录不合账）；④ 用 FileSessionStore + FileTraceSink；文件持久化接着聊 |
+| `test/unit/live-evidence.test.ts` | 只读真实证据 | 仓库里已提交的 `evals/live-trace/**/*.jsonl` 逐轮过 ① ② ③ ⑤ + unknown 点名；篡改一条记录证明检查会红 |
 | `test/unit/agent-loop.test.ts` | 假模型 | 循环行为、blocked 回喂、残缺表验证闸拦得住（error 终态 / 测试模式抛出） |
 | `test/unit/session-context.test.ts` | 假模型 | 窗口隔离、追问、think 剥离、压缩、memory、trace 序列 / request_id / redact |
 | `test/unit/parser.test.ts` | 纯函数 | 协议解析与真实模型偏差 |
 | `test/unit/docs.test.ts` | 纯函数 | 守文档：七章节、地图文件与命令存在、机器清单 == 表、gate.sh 四步顺序 |
 | `test/unit/tools.test.ts` | 纯函数 | 注册表全部走 `registry.invoke`：未注册 / 缺必填 / 类型错 / 未知参数 / 枚举外 / 截断 / handler 抛错 |
-| `test/live/live.test.ts` | 真实模型 smoke | 5 场景，无 key 自动跳过 |
+| `test/live/live.test.ts` | 真实模型 smoke | 5 场景，无 key 自动跳过；afterAll 对当次产出的 trace 跑同一份不变量检查 |
 
 ## 禁止事项
 

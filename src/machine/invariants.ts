@@ -1,6 +1,7 @@
 import type { ChatMessage } from "../llm/types.js";
 import type { Effect, TransitionRecord } from "../runtime/trace.js";
 import { TERMINAL_STOPPED_BY, TURN_TERMINAL, turnMachine, type TurnMachine } from "../../contracts/turn.machine.js";
+import { unknownRows } from "./check.js";
 
 // 五条 P0 不变量的独立 oracle（docs/product/SPEC-state-machines.md §2 D3 四条 + ⑤ 副作用对账）。
 // 输入只有「用户可见的证据」：一轮的 trace 记录、RunResult、盘上历史末条；不碰 runtime 内部。
@@ -108,6 +109,22 @@ export const TURN_INVARIANT_CHECKS = {
   answer_alignment: (ev: TurnEvidence) => answerAligned(ev),
   effects_declared: (ev: TurnEvidence) => effectsDeclared(ev.records),
 } as const;
+
+/**
+ * 只凭 trace 记录就能判的不变量（① ② ③ ⑤ + unknown 点名）——用来过真实模型跑出来的 JSONL（src/machine/evidence.ts），
+ * 那里没有 RunResult 与盘上历史，所以 ④ 不在此列。③ 的 stoppedBy 取自末条 answer 副作用。
+ */
+export function checkTraceOnlyInvariants(records: TransitionRecord[]): Array<{ id: string; violations: string[] }> {
+  const last = records[records.length - 1];
+  const answer = last ? answerEffects(last)[0] : undefined;
+  return [
+    { id: "no_tool_after_parse_error", violations: noToolAfterParseError(records) },
+    { id: "exactly_one_final_answer", violations: exactlyOneFinalAnswer(records) },
+    { id: "terminal_states_distinct", violations: answer ? terminalStatesDistinct(records, answer.stoppedBy) : ["末条转移上没有 answer 副作用，无法判定终态"] },
+    { id: "effects_declared", violations: effectsDeclared(records) },
+    { id: "unknown_never_silent", violations: unknownRows(records).map((r) => `#${r.seq} ${r.from} + ${r.event} 是 unknown 转移：${r.reason ?? ""}`) },
+  ];
+}
 
 /** 一次跑全部五条；返回每条的违反项 */
 export function checkTurnInvariants(ev: TurnEvidence): Array<{ id: keyof typeof TURN_INVARIANT_CHECKS; violations: string[] }> {
