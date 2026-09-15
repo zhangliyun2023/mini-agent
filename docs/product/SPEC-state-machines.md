@@ -58,3 +58,7 @@ kinds:   allowed / rejected / noop；未列出的 (state, event) = unknown
 ## §7 不做
 
 并发 busy 处理的代码；流式输出；LLM 生成用例；组件层；生产采样与告警；跨进程锁。
+
+## §8 实施状态（2026-09-15 追加）
+
+S0–S6 全部落地，`npm run check` 全绿（typecheck、3 份契约 0 漂移、89 条单测）。真实模型 live 本次未重跑（无 key）。入口见 `AGENTS.md`，逐条证据见 `docs/TEST_REPORT.md`，剩余项见 `docs/NEXT_STEPS.md`。规格未写死而由实现补的判断（compact 挂哪条转移、unknown 默认处理、runner 协议）记录在 `AI-LOG.md` §3。

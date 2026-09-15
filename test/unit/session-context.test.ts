@@ -93,8 +93,11 @@ describe("Context：超阈值压缩", () => {
     expect(r.answer).toContain("要点：用户问了 1-4 号问题");
     expect(r.answer).toContain("问5");
     expect(r.answer).not.toContain("问1|");
-    const compact = trace.records.find((x) => x.event.kind === "compact")?.event as any;
+    // compact 不再是独立记录，而是挂在本轮第一条转移上的副作用（D4）
+    const compact = trace.effects("compact")[0];
     expect(compact).toMatchObject({ before: 12, after: 4, method: "llm" });
+    const firstOfTurn7 = trace.records.find((x) => x.trace_id === "u/s/7" && x.seq === 1)!;
+    expect(firstOfTurn7.effects.map((e) => e.kind)).toEqual(["compact", "llm"]);
   });
 
   it("摘要调用失败时退回规则压缩，不影响本轮回答", async () => {
@@ -109,7 +112,7 @@ describe("Context：超阈值压缩", () => {
     const r = await agent.run({ userId: "u", sessionId: "s", input: "问4" });
     expect(r.stoppedBy).toBe("final");
     expect(r.answer).toContain("用户：问1");
-    expect((trace.records.find((x) => x.event.kind === "compact")?.event as any).method).toBe("rule");
+    expect(trace.effects("compact")[0].method).toBe("rule");
   });
 });
 
@@ -132,16 +135,31 @@ describe("用户级 memory：跨 session 召回", () => {
   });
 });
 
-describe("trace", () => {
-  it("每次 LLM 调用、工具调用、结束原因都有一条记录，带 session 与耗时", async () => {
+describe("trace：以转移为单位，序列对答案卷", () => {
+  it("一轮的转移序列与答案卷逐条相同，每条带 trace_id；llm / tool / answer 作为副作用挂在对应转移上", async () => {
     const trace = new MemoryTraceSink();
     const llm = new FakeLLM([tc("calculator", { expression: "1+1" }), "<final>2</final>"]);
-    await createAgent({ llm, trace }).run({ userId: "u", sessionId: "s", input: "1+1" });
-    const kinds = trace.records.map((r) => r.event.kind);
-    expect(kinds).toEqual(["llm", "tool", "llm", "stop"]);
-    expect(trace.records.every((r) => r.sessionId === "s" && r.turn === 1)).toBe(true);
-    const tool = trace.records[1].event as any;
-    expect(tool).toMatchObject({ name: "calculator", ok: true, resultPreview: "2" });
+    const r = await createAgent({ llm, trace }).run({ userId: "u", sessionId: "s", input: "1+1" });
+    expect(trace.sequence()).toEqual([
+      "deciding --LLM_OK--> deciding",
+      "deciding --PARSED_TOOL_CALLS--> executing_tools",
+      "executing_tools --TOOLS_DONE--> deciding",
+      "deciding --LLM_OK--> deciding",
+      "deciding --PARSED_FINAL--> done",
+    ]);
+    expect(r.traceId).toBe("u/s/1");
+    expect(trace.records.every((x) => x.trace_id === "u/s/1" && x.sessionId === "s" && x.turn === 1 && x.status === "allowed")).toBe(true);
+    expect(trace.records.map((x) => x.seq)).toEqual([1, 2, 3, 4, 5]);
+    expect(trace.records.map((x) => x.step)).toEqual([1, 1, 1, 2, 2]);
+    // 副作用挂在触发它的转移上
+    expect(trace.records[0].effects.map((e) => e.kind)).toEqual(["llm"]);
+    const tool = trace.records[2].effects[0] as any;
+    expect(tool).toMatchObject({ kind: "tool", name: "calculator", ok: true, resultPreview: "2" });
     expect(typeof tool.durationMs).toBe("number");
+    const answer = trace.records[4].effects.find((e) => e.kind === "answer") as any;
+    expect(answer).toMatchObject({ stoppedBy: "final", answer: "2" });
+    expect(typeof answer.totalMs).toBe("number");
+    // 不再有独立的 stop 记录：终态转移就是结束记录
+    expect(trace.records.at(-1)?.to).toBe("done");
   });
 });

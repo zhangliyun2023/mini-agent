@@ -1,0 +1,117 @@
+{
+  "feature": "session-runtime",
+  "anchor": "docs/SPEC.md#out-of-scope → HTTP 服务与并发 busy 状态处理",
+  "initial": "idle",
+  "states": [
+    "idle",
+    "busy"
+  ],
+  "terminal": [],
+  "events": [
+    "INPUT",
+    "TURN_DONE",
+    "ASYNC_DONE"
+  ],
+  "guards": [],
+  "rows": [
+    {
+      "id": "idle --INPUT--> busy",
+      "from": "idle",
+      "event": "INPUT",
+      "guard": null,
+      "to": "busy",
+      "kind": "allowed",
+      "reason": "开始一轮",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "idle --TURN_DONE--> idle",
+      "from": "idle",
+      "event": "TURN_DONE",
+      "guard": null,
+      "to": "idle",
+      "kind": "noop",
+      "reason": "没有进行中的轮，忽略",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "busy --TURN_DONE--> idle",
+      "from": "busy",
+      "event": "TURN_DONE",
+      "guard": null,
+      "to": "idle",
+      "kind": "allowed",
+      "reason": "本轮结束（任一终态）",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "busy --INPUT--> busy",
+      "from": "busy",
+      "event": "INPUT",
+      "guard": null,
+      "to": "busy",
+      "kind": "unknown",
+      "reason": "忙时来新输入：排队 / 拒绝 / 打断 均未决定，不实现",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "busy --ASYNC_DONE--> busy",
+      "from": "busy",
+      "event": "ASYNC_DONE",
+      "guard": null,
+      "to": "busy",
+      "kind": "unknown",
+      "reason": "忙时异步完成（如后台压缩）：未建模",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "idle --ASYNC_DONE--> idle",
+      "from": "idle",
+      "event": "ASYNC_DONE",
+      "guard": null,
+      "to": "idle",
+      "kind": "unknown",
+      "reason": "空闲时异步完成：未建模",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    }
+  ],
+  "invariants": [
+    {
+      "id": "no_concurrent_turns_per_session",
+      "text": "同一会话同一时刻至多一轮在跑",
+      "priority": "P1",
+      "status": "planned",
+      "evidence": []
+    }
+  ],
+  "cells": {
+    "total": 6,
+    "listed": 6,
+    "declared_unknown": [
+      "busy --INPUT--> busy",
+      "busy --ASYNC_DONE--> busy",
+      "idle --ASYNC_DONE--> idle"
+    ],
+    "unlisted": []
+  },
+  "reachable": {
+    "states": [
+      "idle",
+      "busy"
+    ],
+    "unreachable_states": [],
+    "unreachable_rows": []
+  }
+}

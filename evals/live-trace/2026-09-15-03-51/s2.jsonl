@@ -1,2 +1,0 @@
-{"ts":"2026-09-15T03:51:56.885Z","userId":"M","sessionId":"s2","turn":1,"event":{"kind":"llm","step":1,"model":"qwen3-max","messages":2,"promptTokens":728,"completionTokens":7,"durationMs":667,"outputPreview":"<final>上海</final>"}}
-{"ts":"2026-09-15T03:51:56.886Z","userId":"M","sessionId":"s2","turn":1,"event":{"kind":"stop","reason":"final","totalMs":669}}
