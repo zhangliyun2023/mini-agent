@@ -1,0 +1,29 @@
+# 2026-09-15T04:30:02-06:00 node=v24.15.0 commit=f53cfa1 label=t19-r3 cmd: npm test -s --
+
+ RUN  v3.2.7 /private/tmp/ma-r3-entries
+
+ ✓ test/unit/docs.test.ts (8 tests) 7ms
+ ✓ test/unit/live-evidence.test.ts (3 tests) 14ms
+ ✓ test/unit/memory-entries.test.ts (6 tests) 7ms
+ ✓ test/unit/session-context.test.ts (14 tests) 9ms
+ ✓ test/unit/generator.test.ts (16 tests) 10ms
+ ✓ test/unit/invariants.test.ts (12 tests) 23ms
+ ✓ test/unit/native-tools.test.ts (8 tests) 42ms
+ ✓ test/unit/llm-retry.test.ts (6 tests) 5ms
+ ✓ test/unit/explore.test.ts (6 tests) 215ms
+ ✓ test/unit/machine.test.ts (10 tests) 5ms
+ ✓ test/unit/contracts.test.ts (9 tests) 6ms
+ ✓ test/unit/parser.test.ts (16 tests) 4ms
+ ✓ test/unit/agent-loop.test.ts (11 tests) 9ms
+ ✓ test/unit/tools.test.ts (18 tests) 6ms
+ ✓ test/unit/journeys.test.ts (8 tests) 8ms
+ ✓ test/unit/unknown-transition-default.test.ts (1 test) 5ms
+ ✓ test/unit/judge-py.test.ts (4 tests) 363ms
+ ✓ test/unit/llm-errors.test.ts (21 tests) 2ms
+
+ Test Files  18 passed (18)
+      Tests  177 passed (177)
+   Start at  04:30:03
+   Duration  677ms (transform 426ms, setup 0ms, collect 1.26s, tests 740ms, environment 1ms, prepare 876ms)
+
+exit 0 (expected 0)

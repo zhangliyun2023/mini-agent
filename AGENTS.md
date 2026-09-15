@@ -1,3 +1,4 @@
+| `test/unit/memory-entries.test.ts` | 假模型 + 真落盘 | 记忆条目：remember 写 stated / 1 / 当前轮；同 key 不同值 conflict 不覆盖；「（推断）」「（待确认）」渲染；预算丢弃顺序 conflict → inferred → stated 最老；旧 KV 文件读为 stated |
 # AGENTS.md — mini-agent 唯一入口
 
 给人和 Agent 看的第一页。改代码前先读；这页引用的文件与命令由 `test/unit/docs.test.ts` 守着，写错就红。
@@ -73,6 +74,8 @@ src/memory/                    用户级长期记忆（内存 / 文件）
 src/review/                    复盘（#19）：types.ts 共享类型；transcript.ts 逐轮转写（Raw 层，内存 / 文件 data/transcripts，轮末追加、不压缩）
 src/review/                    复盘（#19）：types.ts 共享类型；present.ts 呈现门槛（why_today + source 必备、不复述原话、空则 brief null）
 src/review/                    复盘（#19）：types.ts 共享类型 + TranscriptReader 最小读接口；window.ts 计划日期 + 时区 → 昨日 [start, end)（只用 Intl）；collect.ts 按区间取转写行、三态 coverage（full / partial / none，读不出 ≠ 没聊）
+src/memory/                    用户级长期记忆：条目集合（stated / inferred、conflict 不覆盖、预算丢弃顺序；entries.ts 是 upsert 规则；内存 / 文件）
+src/review/                    #19 复盘的共享类型 types.ts（MemoryEntry / Highlight / Brief / ReviewJournal…）
 src/llm/                       LLMClient 接口 + OpenAI-compatible 实现 + FakeLLM
 scripts/contracts.ts           contracts:gen / contracts:check 的实现
 scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
@@ -97,6 +100,7 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 | `test/unit/unknown-transition-default.test.ts` | 假模型 | 不传 unknownTransition 时未列转移以 error 终态结束、不抛出（运行时默认，不读测试环境变量） |
 | `test/unit/agent-loop.test.ts` | 假模型 | 循环行为、blocked 回喂、残缺表验证闸拦得住（error 终态 / 测试模式抛出） |
 | `test/unit/session-context.test.ts` | 假模型 | 窗口隔离、追问、think 剥离、压缩、memory、trace 序列 / request_id / redact |
+| `test/unit/memory-entries.test.ts` | 假模型 + 真落盘 | 记忆条目（#19 R3）：remember 写 stated / 1 / 当前轮；同 key 不同值 conflict 不覆盖；「（推断）」「（待确认）」渲染；预算丢弃顺序 conflict → inferred → stated 最老；旧 KV 文件读为 stated |
 | `test/unit/parser.test.ts` | 纯函数 | 协议解析与真实模型偏差 |
 | `test/unit/docs.test.ts` | 纯函数 | 守文档：七章节、地图文件与命令存在、机器清单 == 表、gate.sh 四步顺序、TEST_REPORT §0 条数表 == 源码静态计数 |
 | `test/unit/tools.test.ts` | 纯函数 | 注册表全部走 `registry.invoke`：未注册 / 缺必填 / 类型错 / 未知参数 / 枚举外 / 截断 / handler 抛错 |
