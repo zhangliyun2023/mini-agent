@@ -118,6 +118,23 @@
 
 not_run：无。skipped：无。未做：混合历史（先文本后原生）无测试；CLI `--native-tools` 未手工冒烟；四票均无变异测试（B3 那次仍是唯一一次）。
 
+## 10. v0.5（#19 每日复盘 = 记忆整合，R1–R9）—— 门禁数字与证据
+
+证据目录 `docs/evidence/v0.5/`（`bash scripts/gate.sh v0.5`，2026-09-15）。九片四波并行，每片 PR（#20–#27）各带 `docs/evidence/t19-r<n>/REPORT.md`。
+
+| 步骤 | 结果 | 口径 |
+|---|---|---|
+| typecheck | 0 错 | 已验证（进程内） |
+| 单测 | **27 文件 250 条全绿**（v0.4 的 171 → +79） | 已验证（进程内） |
+| 契约漂移 | **4 份** 0 漂移（turn / session / session-runtime / review） | 已验证（进程内） |
+| 真实模型（turn） | 5/5 + afterAll 0 违反（7 文件 / 9 轮 / 42 条转移） | 少量 smoke |
+| 真实模型（复盘） | R4 一次：3 stated + 1 due_today、无 warning；R8 一次：两轮 chat → 次日 review `ok`，entries 3，1 条 due_today，重跑 attempts=2 不调模型（`docs/evidence/t19-r8/live-smoke.txt`） | 少量 smoke，不写可靠率 |
+| Python 判分 | 49 文件 / 63 轮 / 285 条转移，63 passed，0 failed，0 unknown（只看 turn） | 已验证（进程内） |
+
+复盘线四条 P0 不变量（`test/unit/review-invariants.test.ts`）各一红一绿：幂等、冲突不覆盖、每条亮点有来源、不复述原话。变异：R2 两条、R4 一条、R5 一条、R6 一条、R8 一条——各红一次已还原。review 表随机探索 300 走 2491 步零违反。
+
+not_run：无。skipped：无。未做：见 `docs/NEXT_STEPS.md`「复盘线」。
+
 ## 4. 五条 P0 不变量（D3 四条 + ⑤ 副作用对账）
 
 | # | 不变量 | oracle | 绿 | 红 |
