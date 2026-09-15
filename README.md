@@ -33,3 +33,4 @@ bash scripts/gate.sh v0.3   # 一键门禁，证据落 docs/evidence/v0.3/（无
 - 测试报告（三层分开写）：`docs/TEST_REPORT.md`
 - 下一步：`docs/NEXT_STEPS.md`
 - AI 协作记录：`AI-LOG.md`
+- 架构设计题答案（五模块各一题）：`docs/DESIGN-QUESTIONS.md`
