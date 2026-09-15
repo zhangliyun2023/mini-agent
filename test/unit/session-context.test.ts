@@ -222,3 +222,22 @@ describe("用户级 memory：截断进 trace（#12）", () => {
     expect(trace.records.filter((r) => r.trace_id === "B/w1/1").flatMap((r) => r.effects).some((e) => e.kind === "memory_truncated")).toBe(false);
   });
 });
+
+describe("Context 预算：历史阈值与记忆上限是两个独立上限（#12）", () => {
+  it("记忆块顶满上限、历史未超 maxHistoryChars 时不触发压缩——system prompt 长度不计入历史阈值，记忆自己有上限", async () => {
+    const memory = new MemoryUserMemoryStore();
+    for (let i = 0; i < 60; i++) memory.set("A", `k${String(i).padStart(2, "0")}`, "x".repeat(40));
+    const llm = new FakeLLM(["<final>答1</final>", "<final>答2</final>"]);
+    const trace = new MemoryTraceSink();
+    // 历史阈值 600 字符：第 2 轮开始时历史只有「问1 + <final>答1</final>」≈ 20 字符；system prompt（含顶满 1200 的记忆块）远超 600
+    const agent = createAgent({ llm, trace, memory, context: { maxHistoryChars: 600 } });
+    await agent.run({ userId: "A", sessionId: "s", input: "问1" });
+    await agent.run({ userId: "A", sessionId: "s", input: "问2" });
+    expect(llm.calls[1][0].content.length).toBeGreaterThan(600);
+    expect(trace.effects("compact")).toEqual([]);
+    expect(llm.calls[1].some((m) => m.content.includes("此前对话摘要"))).toBe(false);
+    // 记忆块本身仍被自己的上限约束
+    const block = /<memory>[\s\S]*<\/memory>/.exec(llm.calls[1][0].content)![0];
+    expect(block.length).toBeLessThanOrEqual(1200);
+  });
+});
