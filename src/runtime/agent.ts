@@ -66,6 +66,7 @@ class LlmCallFailed extends Error {
     super(message);
     this.name = "LlmCallFailed";
   }
+}
 
 /** 本轮待执行的调用：原生模式多带一份厂商给的 tool_call（id + 原始 arguments 串），回放时原样发回 */
 type RuntimeToolCall = ParsedToolCall & { ref?: ToolCallRef };
