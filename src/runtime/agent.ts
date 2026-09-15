@@ -1,4 +1,4 @@
-import type { ChatMessage, LLMClient, LLMResponse } from "../llm/types.js";
+import type { ChatMessage, LLMClient, LLMResponse, ToolMode } from "../llm/types.js";
 import { ToolRegistry } from "../tools/registry.js";
 import { calculatorTool } from "../tools/calculator.js";
 import { searchTool } from "../tools/search.js";
@@ -84,6 +84,8 @@ export function createAgent(o: AgentOptions) {
   const unknownTransition = o.unknownTransition ?? "error";
   const machine = o.machine ?? turnMachine;
   const protocol = turnRunnerProtocol;
+  /** 工具给法由 LLM 客户端决定（#10）：原生模式下 system prompt 不教标签协议 */
+  const mode: ToolMode = o.llm.toolMode === "native" ? "native" : "text";
 
   /**
    * 模型调用 + 按错误类型重试（#11）：可重试类指数退避 300ms × 2^n，不可重试类一次即终。
@@ -128,7 +130,7 @@ export function createAgent(o: AgentOptions) {
 
     const memoryBlock = renderMemory(memory.load(userId), ctxOpts.memoryMaxChars);
     if (memoryBlock.truncated) pendingEffects.push({ kind: "memory_truncated", ...memoryBlock.truncated, limit: ctxOpts.memoryMaxChars });
-    const systemPrompt = buildSystemPrompt(tools.specs(), memoryBlock.block);
+    const systemPrompt = buildSystemPrompt(tools.specs(), memoryBlock.block, mode);
     const working: ChatMessage[] = [{ role: "user", content: input }];
     const toolCtx = { sessionState: session.state, userId, sessionId };
     let pendingCalls: ParsedToolCall[] = [];
