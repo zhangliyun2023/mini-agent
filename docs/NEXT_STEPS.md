@@ -1,4 +1,4 @@
-# NEXT_STEPS — mini-agent
+# NEXT_STEPS — runtime 参照仓
 
 按价值排序。每条写清「做什么、绿 = 什么」。
 

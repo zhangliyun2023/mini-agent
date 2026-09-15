@@ -1,4 +1,4 @@
-# 规格：mini-agent —— 从零实现的最小可用 Agent Runtime
+# 规格：runtime 参照仓 —— 从零实现的最小可用 Agent Runtime
 
 来源：Ailoha「2026 年 Agent harness 技术笔试题」Vibe coding 部分。交付截止：2026-09-16 上午。
 
