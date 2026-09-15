@@ -30,10 +30,12 @@ initial: deciding
 states:  deciding | executing_tools | done(terminal) | max_steps(terminal) | error(terminal)
 events:  LLM_OK | LLM_FAILED | PARSED_TOOL_CALLS | PARSED_FINAL | PARSED_ERROR | TOOLS_DONE
 guards:  hasStepsLeft(facts) —— facts 只有机器自己维护的 {step, maxSteps}
-kinds:   allowed / rejected / noop；未列出的 (state, event) = unknown
+kinds:   行级 allowed / rejected(必带 reject_code) / noop / unknown；未列出的 (state, event) = unknown
+verdict: 判定级 allowed / blocked / noop / unknown —— rejected 行命中即 blocked（runtime 只跑 onBlocked 回喂，状态不变）
+rows:    每行显式 id（t-llm-ok 风格，定义期查重）；答案卷 / trace / journeys.json 都用行 id
 ```
 
-每条 P0 行带 `covered_by: ['test/unit/<file>::<测试名>']`；enforced 不变量带 `evidence`。
+每条 P0 行带 `covered_by: ['test/unit/<file>::<测试名>']`；enforced 不变量带 `evidence`，planned 不变量带 `note`。
 
 ## §4 打点
 
@@ -43,7 +45,7 @@ kinds:   allowed / rejected / noop；未列出的 (state, event) = unknown
 
 ## §5 自动 E2E
 
-`reachable('deciding')` 给出所有可达行；生成器把每条 allowed 路径展开成「FakeLLM 脚本 → 期望转移序列（答案卷）」；测试断言 trace 里的转移序列 == 答案卷，且每条 P0 行的 `covered_by` 在盘上找得到。
+`reachable('deciding')` 给出所有可达行；生成器把每条路径展开成「FakeLLM 脚本 → 期望行 id 序列（答案卷）」；测试断言 trace 里的转移序列 == 答案卷，且每条 P0 行的 `covered_by` 在盘上找得到。答案卷另落盘为 `contracts/journeys.json`，`src/machine/check.ts::checkJourney` 吃 trace 行答 passed / failed(closest) / not_observed（人、AI、测试同一个函数）。模型层另有随机探索（`src/machine/explore.ts`：种子游走 + 通用不变量 + ddmin），三张表都跑。
 
 ## §6 切片与验收
 
@@ -61,6 +63,18 @@ kinds:   allowed / rejected / noop；未列出的 (state, event) = unknown
 
 并发 busy 处理的代码；流式输出；LLM 生成用例；组件层；生产采样与告警；跨进程锁。
 
-## §8 实施状态（2026-09-15 追加）
+## §8 拍板记录（issue #5，2026-09-15）
 
-S0–S6 全部落地，`npm run check` 全绿（typecheck、3 份契约 0 漂移、89 条单测）。真实模型 live 本次未重跑（无 key）。入口见 `AGENTS.md`，逐条证据见 `docs/TEST_REPORT.md`，剩余项见 `docs/NEXT_STEPS.md`。规格未写死而由实现补的判断（compact 挂哪条转移、unknown 默认处理、runner 协议）记录在 `AI-LOG.md` §3。
+| # | 分歧 | 结论 |
+|---|---|---|
+| ① | 终态吸收态 vs 禁止出边 | 保留「终态无出边」（定义期校验不放开）；turn 表终态 × 事件在 runtime 不可达，轮结束后到达的事件属外层 `session-runtime` 表。探索器的 terminal-absorbing 不变量按此口径写 |
+| ② | 步数上限在解析后拦 vs 工具跑完再拦 | 保留现状（工具跑完 → `TOOLS_DONE` 无 guard 兜底行 `t-tools-done-cap` → max_steps）；理由写进该行 reason |
+| ③ | answer 全文进 trace vs 白名单落盘 | 保留全文（不变量 ④ 需要），§4 列为显式例外；工具 args 加 `redact` |
+| ④ | 表外状态名 / 事件名返回 unknown 而不抛 | 接受现状（TS 类型编译期挡笔误），已接受的分歧 |
+| ⑤ | 状态是字符串数组而非带 meaning/kind 的对象 | 接受现状；契约里 `cells / reachable` 段比参考更有用 |
+
+## §9 实施状态（2026-09-15 追加）
+
+S0–S6 全部落地，`npm run check` 全绿（typecheck、3 份契约 0 漂移、89 条单测）。真实模型 live 本次未重跑（无 key）。
+
+**v0.2（issue #5，2026-09-15）**：行 id / request_id / rejected→blocked / planned note / redact / 答案卷落盘 / 随机探索 / 变异 / 门禁与七章节文档全部落地；`bash scripts/gate.sh v0.2` → typecheck 0、113 条单测全绿、3 份契约 0 漂移、live 5/5，证据在 `docs/evidence/v0.2/`。入口见 `AGENTS.md`，逐条证据见 `docs/TEST_REPORT.md`，剩余项见 `docs/NEXT_STEPS.md`。规格未写死而由实现补的判断（compact 挂哪条转移、unknown 默认处理、runner 协议）记录在 `AI-LOG.md` §3。
