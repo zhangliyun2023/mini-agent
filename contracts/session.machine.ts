@@ -16,7 +16,7 @@ export const sessionMachine = defineMachine<SessionState, SessionEvent, Record<s
   events: ["FIRST_INPUT", "INPUT", "COMPACT_NEEDED", "COMPACT_DONE", "COMPACT_FAILED"],
   rows: [
     { id: "s-first-input", from: "new", event: "FIRST_INPUT", to: "active", kind: "allowed", priority: "P1", reason: "首次输入：建会话文件、turns=1" },
-    { id: "s-compact-on-empty", from: "new", event: "COMPACT_NEEDED", to: "new", kind: "rejected", priority: "P1", reason: "空会话无历史可压" },
+    { id: "s-compact-on-empty", from: "new", event: "COMPACT_NEEDED", to: "new", kind: "rejected", reject_code: "EMPTY_HISTORY", priority: "P1", reason: "空会话无历史可压" },
     { id: "s-input", from: "active", event: "INPUT", to: "active", kind: "allowed", priority: "P1", reason: "新一轮 turn（见 turn 表）" },
     { id: "s-compact-needed", from: "active", event: "COMPACT_NEEDED", to: "compacting", kind: "allowed", priority: "P1", reason: "历史超条数/字符阈值，新一轮开始前先压" },
     { id: "s-compact-done-noop", from: "active", event: "COMPACT_DONE", to: "active", kind: "noop", priority: "P1", reason: "没有进行中的压缩，忽略" },

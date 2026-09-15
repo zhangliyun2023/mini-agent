@@ -19,7 +19,7 @@ function sample() {
       { id: "r-go-big", from: "a", event: "GO", to: "c", kind: "allowed", guard: "big", reason: "大走 c" },
       { id: "r-stay", from: "a", event: "STAY", to: "a", kind: "noop", reason: "原地" },
       { id: "r-stop", from: "b", event: "STOP", to: "end", kind: "allowed" },
-      { id: "r-b-stay", from: "b", event: "STAY", to: "b", kind: "rejected", reason: "b 不接受 STAY" },
+      { id: "r-b-stay", from: "b", event: "STAY", to: "b", kind: "rejected", reject_code: "B_NO_STAY", reason: "b 不接受 STAY" },
       { id: "r-never", from: "c", event: "NEVER", to: "c", kind: "unknown", reason: "诚实声明：c 收到 NEVER 未建模" },
     ],
   });
@@ -66,10 +66,12 @@ describe("S0 状态表解释器", () => {
     expect(interpret(none, "a", "GO", { n: 0 }).reason).toMatch(/守卫均未命中/);
   });
 
-  it("rejected / noop 行返回对应 status 且不改状态", () => {
+  it("rejected / noop 行返回对应 status 且不改状态：rejected 行的 verdict 是 blocked，并带 reject_code", () => {
     const m = sample();
     expect(interpret(m, "a", "STAY", { n: 0 })).toMatchObject({ status: "noop", to: "a" });
-    expect(interpret(m, "b", "STAY", { n: 0 })).toMatchObject({ status: "rejected", to: "b", reason: "b 不接受 STAY" });
+    expect(interpret(m, "b", "STAY", { n: 0 })).toMatchObject({ status: "blocked", to: "b", reason: "b 不接受 STAY", reject_code: "B_NO_STAY" });
+    expect(interpret(m, "b", "STAY", { n: 0 }).row?.kind).toBe("rejected");
+    expect(toContract(m).rows.find((r) => r.id === "r-b-stay")).toMatchObject({ kind: "rejected", reject_code: "B_NO_STAY" });
   });
 
   it("定义期校验：终态出边 / 未知守卫 / 无守卫行挡住后面的行 / 非 allowed 行改状态 都在定义时报错", () => {
@@ -86,7 +88,8 @@ describe("S0 状态表解释器", () => {
         ],
       }),
     ).toThrow(/永远不可达/);
-    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ id: "x8", from: "a", event: "GO", to: "b", kind: "rejected" }] })).toThrow(/不能改变状态/);
+    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ id: "x8", from: "a", event: "GO", to: "b", kind: "rejected", reject_code: "X" }] })).toThrow(/不能改变状态/);
+    expect(() => defineMachine<S, E, F>({ ...base, rows: [{ id: "x8b", from: "a", event: "GO", to: "a", kind: "rejected" }] })).toThrow(/reject_code/);
     expect(() => defineMachine<S, E, F>({ ...base, rows: [{ id: "x9", from: "a", event: "GO", to: "b", kind: "allowed", covered_by: ["no-separator"] }] })).toThrow(/covered_by/);
     expect(() => defineMachine<S, E, F>({ ...base, rows: [], invariants: [{ id: "x", text: "t", priority: "P0", status: "enforced" }] })).toThrow(/evidence/);
   });
@@ -123,7 +126,7 @@ describe("S0 状态表解释器", () => {
       rows: [
         { id: "x10", from: "a", event: "GO", to: "b", kind: "allowed" },
         { id: "x11", from: "b", event: "STOP", to: "end", kind: "allowed" },
-        { id: "x12", from: "b", event: "STAY", to: "b", kind: "rejected" },
+        { id: "x12", from: "b", event: "STAY", to: "b", kind: "rejected", reject_code: "NO" },
         { id: "x13", from: "c", event: "GO", to: "end", kind: "allowed" },
       ],
     });

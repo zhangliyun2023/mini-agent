@@ -58,7 +58,7 @@ describe("答案卷 = 行 id 序列（A1）", () => {
     const failed = gen.paths.find((p) => p.events.join(",") === "LLM_FAILED")!;
     expect(failed.expected).toEqual(["t-llm-failed"]);
     const direct = gen.paths.find((p) => p.events.join(",") === "LLM_OK,PARSED_FINAL")!;
-    expect(direct.expected).toEqual(["t-llm-ok", "t-final"]);
+    expect(direct.expected).toEqual(["t-llm-ok [noop]", "t-final"]);
   });
 
   it("改某行 reason 不引起答案卷漂移：同一路径集合、同一 expected", () => {
@@ -75,6 +75,6 @@ describe("生成路径逐条真跑：trace 转移序列 == 答案卷", () => {
     const r = await createAgent({ llm, trace, maxToolSteps: MAX_STEPS, llmRetries: 0 }).run({ userId: "gen", sessionId: path.id, input: "go" });
     expect(trace.sequence()).toEqual(path.expected);
     expect(r.stoppedBy).toBe(TERMINAL_STOPPED_BY[path.terminal as keyof typeof TERMINAL_STOPPED_BY]);
-    expect(trace.records.every((x) => x.status === "allowed")).toBe(true);
+    expect(trace.records.every((x) => x.status !== "unknown")).toBe(true);
   });
 });

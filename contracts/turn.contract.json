@@ -33,8 +33,9 @@
       "event": "LLM_OK",
       "guard": null,
       "to": "deciding",
-      "kind": "allowed",
-      "reason": "模型返回了文本，留在 deciding 等解析",
+      "kind": "noop",
+      "reject_code": null,
+      "reason": "模型返回了文本，状态不变，进入解析",
       "priority": "P0",
       "covered_by": [
         "test/unit/agent-loop.test.ts::不需要工具时直接回复，只调一次 LLM"
@@ -52,6 +53,7 @@
       "guard": null,
       "to": "error",
       "kind": "allowed",
+      "reject_code": null,
       "reason": "重试用尽仍失败，以可读错误结束本轮",
       "priority": "P0",
       "covered_by": [
@@ -71,6 +73,7 @@
       "guard": null,
       "to": "done",
       "kind": "allowed",
+      "reject_code": null,
       "reason": "无工具调用且有 final：本轮结束",
       "priority": "P0",
       "covered_by": [
@@ -89,6 +92,7 @@
       "guard": null,
       "to": "executing_tools",
       "kind": "allowed",
+      "reject_code": null,
       "reason": "解析出工具调用，进入执行；工具只在 executing_tools 里跑",
       "priority": "P0",
       "covered_by": [
@@ -105,8 +109,9 @@
       "event": "PARSED_ERROR",
       "guard": "hasStepsLeft",
       "to": "deciding",
-      "kind": "allowed",
-      "reason": "解析失败且还有步数：把错误当 tool 消息回喂，让模型重来",
+      "kind": "rejected",
+      "reject_code": "PARSE_ERROR",
+      "reason": "解析失败且还有步数：本步被拦下（blocked），把错误当 tool 消息回喂让模型重来；不执行任何工具",
       "priority": "P0",
       "covered_by": [
         "test/unit/agent-loop.test.ts::模型输出坏 JSON 时，把解析错误当 tool 消息回喂，让模型自己纠正"
@@ -123,6 +128,7 @@
       "guard": null,
       "to": "max_steps",
       "kind": "allowed",
+      "reject_code": null,
       "reason": "解析失败且步数用尽：交还已有结果",
       "priority": "P0",
       "covered_by": [
@@ -141,6 +147,7 @@
       "guard": "hasStepsLeft",
       "to": "deciding",
       "kind": "allowed",
+      "reject_code": null,
       "reason": "工具结果已回填，还有步数：回到模型决策",
       "priority": "P0",
       "covered_by": [
@@ -158,7 +165,8 @@
       "guard": null,
       "to": "max_steps",
       "kind": "allowed",
-      "reason": "工具结果已回填但步数用尽：以「已达上限 + 最近三条工具结果」结束",
+      "reject_code": null,
+      "reason": "工具结果已回填但步数用尽：以「已达上限 + 最近三条工具结果」结束。上限在工具跑完后才拦（拍板②）：把结果交还用户比省一次工具调用更有价值",
       "priority": "P0",
       "covered_by": [
         "test/unit/agent-loop.test.ts::模型一直调工具时，到达单轮最大步数就停下并把已有信息交还用户"

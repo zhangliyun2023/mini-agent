@@ -65,6 +65,21 @@ describe("Agent Loop", () => {
     expect(r.answer).toBe("纠正了");
   });
 
+  it("A3：坏 JSON 那一步是 blocked（rejected 行，reject_code=PARSE_ERROR）：trace 能数出 1 次 blocked，回喂消息在 onBlocked 里发出、模型收得到", async () => {
+    const llm = new FakeLLM([`<tool_call>{"name":"calculator","arguments":{"expression":</tool_call>`, "<final>纠正了</final>"]);
+    const trace = new MemoryTraceSink();
+    const r = await createAgent({ llm, trace }).run({ userId: "u1", sessionId: "s1", input: "x" });
+    expect(r.answer).toBe("纠正了");
+    expect(trace.sequence()).toEqual(["t-llm-ok [noop]", "t-parse-error [blocked]", "t-llm-ok [noop]", "t-final"]);
+    const blocked = trace.records.filter((x) => x.status === "blocked");
+    expect(blocked.length).toBe(1);
+    expect(blocked[0]).toMatchObject({ from: "deciding", to: "deciding", event: "PARSED_ERROR", transition: "t-parse-error", reject_code: "PARSE_ERROR" });
+    // 回喂：第二次模型调用的末条是 parser 的 tool 消息
+    const second = llm.calls[1];
+    expect(second[second.length - 1]).toMatchObject({ role: "tool", name: "parser" });
+    expect(second[second.length - 1].content).toMatch(/无法解析/);
+  });
+
   it("工具执行失败时不中断 loop，错误以 tool 消息回喂", async () => {
     const llm = new FakeLLM([
       tc("calculator", { expression: "process.exit()" }),
@@ -87,7 +102,7 @@ describe("Agent Loop", () => {
     const r = await createAgent({ llm, trace, maxToolSteps: 2 }).run({ userId: "u1", sessionId: "s1", input: "x" });
     expect(r.stoppedBy).toBe("max_steps");
     expect(llm.calls.length).toBe(2);
-    expect(trace.sequence()).toEqual(["t-llm-ok", "t-parse-error", "t-llm-ok", "t-parse-error-cap"]);
+    expect(trace.sequence()).toEqual(["t-llm-ok [noop]", "t-parse-error [blocked]", "t-llm-ok [noop]", "t-parse-error-cap"]);
     // 解析失败的路径上没有任何工具被执行
     expect(trace.effects("tool")).toEqual([]);
     expect(r.steps.every((s) => s.kind === "llm")).toBe(true);
@@ -114,7 +129,7 @@ describe("闸：表里没列的 (状态, 事件) 在运行时被拦下", () => {
     const last = trace.records.at(-1)!;
     expect(last).toMatchObject({ from: "deciding", event: "PARSED_TOOL_CALLS", to: "error", status: "unknown" });
     expect(last.reason).toMatch(/未在表里列出/);
-    expect(trace.sequence()).toEqual(["t-llm-ok", "deciding --PARSED_TOOL_CALLS--> error [unknown]"]);
+    expect(trace.sequence()).toEqual(["t-llm-ok [noop]", "deciding --PARSED_TOOL_CALLS--> error [unknown]"]);
     expect(last.transition).toBeNull();
     // 历史里仍然恰好一条最终答案，会话没被搞坏
     const hist = agent.sessions.get("u1", "s1").history;

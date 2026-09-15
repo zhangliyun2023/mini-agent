@@ -5,7 +5,10 @@
 //   - reachable：从某状态出发沿 allowed 行 BFS，给出可达状态/行与不可达项
 //   - toContract：同一张表永远产出同一份 JSON（无时间戳、无函数），漂移测试对它
 
+/** 行级：表里怎么写 */
 export type Kind = "allowed" | "rejected" | "noop" | "unknown";
+/** 判定级：interpret 怎么答。rejected 行命中 → blocked */
+export type Verdict = "allowed" | "blocked" | "noop" | "unknown";
 
 export interface Row<S extends string = string, E extends string = string> {
   /** 行的显式 id（`t-llm-ok` 风格），定义期查重；trace 记录与答案卷都用它，改 reason 不会漂 */
@@ -16,6 +19,8 @@ export interface Row<S extends string = string, E extends string = string> {
   kind: Kind;
   /** 守卫名，需在 machine.guards 里有对应函数；同格多行按定义顺序取首条命中 */
   guard?: string;
+  /** rejected 行必填：被拦下的机器可读原因（如 PARSE_ERROR），进 trace 的 reject_code */
+  reject_code?: string;
   reason?: string;
   priority?: "P0" | "P1" | "P2";
   /** 手写测试位置：`test/unit/<file>::<测试名>` */
@@ -55,11 +60,13 @@ export interface Machine<S extends string, E extends string, F = unknown> extend
 }
 
 export interface Interpretation<S extends string, E extends string> {
-  status: Kind;
+  status: Verdict;
   from: S;
   to: S;
   event: E;
   reason?: string;
+  /** blocked 时 = 行的 reject_code */
+  reject_code?: string;
   /** 命中的行；unknown 且未列时为空 */
   row?: Row<S, E>;
 }
@@ -113,6 +120,7 @@ export function defineMachine<S extends string, E extends string, F = unknown>(d
     if (def.terminal.includes(row.from)) fail(`行 ${id}：终态不能有出边`);
     if (row.guard !== undefined && typeof guards[row.guard] !== "function") fail(`行 ${id}：guard "${row.guard}" 未定义`);
     if (row.kind !== "allowed" && row.to !== row.from) fail(`行 ${id}：${row.kind} 行不能改变状态（to 必须等于 from）`);
+    if (row.kind === "rejected" && !row.reject_code) fail(`行 ${id}：rejected 行必须带 reject_code`);
     const cellKey = `${row.from}|${row.event}`;
     if (seenGuardless.has(cellKey)) fail(`行 ${id}：同格已有无守卫行在前，此行永远不可达`);
     if (row.guard === undefined) seenGuardless.add(cellKey);
@@ -145,7 +153,7 @@ export function interpret<S extends string, E extends string, F>(m: Machine<S, E
   const rows = m.cell(state, event);
   for (const row of rows) {
     if (row.guard === undefined || m.guards[row.guard](facts)) {
-      return { status: row.kind, from: state, to: row.to, event, reason: row.reason, row };
+      return { status: row.kind === "rejected" ? "blocked" : row.kind, from: state, to: row.to, event, reason: row.reason, reject_code: row.reject_code, row };
     }
   }
   return {
@@ -209,6 +217,7 @@ export interface Contract {
     guard: string | null;
     to: string;
     kind: Kind;
+    reject_code: string | null;
     reason: string | null;
     priority: string | null;
     covered_by: string[];
@@ -239,6 +248,7 @@ export function toContract<S extends string, E extends string, F>(m: Machine<S, 
       guard: row.guard ?? null,
       to: row.to,
       kind: row.kind,
+      reject_code: row.reject_code ?? null,
       reason: row.reason ?? null,
       priority: row.priority ?? null,
       covered_by: [...(row.covered_by ?? [])],

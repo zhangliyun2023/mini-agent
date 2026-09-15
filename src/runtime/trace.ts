@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { appendJsonl } from "../session/store.js";
 import type { TurnEvent, TurnState } from "../../contracts/turn.machine.js";
-import type { Kind } from "../machine/interpreter.js";
+import type { Verdict } from "../machine/interpreter.js";
 
 // trace 的单位是「一次状态转移」（docs/product/SPEC-state-machines.md §2 D4）：
 //   {trace_id, step, from, to, event, status, reason, effects}
@@ -32,8 +32,10 @@ export interface TransitionRecord extends Record<string, unknown> {
   from: TurnState;
   to: TurnState;
   event: TurnEvent;
-  status: Kind;
+  status: Verdict;
   reason?: string;
+  /** blocked 时的机器可读原因（行的 reject_code） */
+  reject_code?: string;
   /** 命中的行 id；unknown 为 null */
   transition: string | null;
   effects: Effect[];
@@ -44,7 +46,7 @@ export interface TraceSink {
 }
 
 /** 答案卷与 trace 序列都用这个格式：行 id（unknown 没有行，退回 `from --EVENT--> to`），非 allowed 追加 ` [status]` */
-export function formatTransition(r: { from: string; event: string; to: string; status: Kind; transition?: string | null }): string {
+export function formatTransition(r: { from: string; event: string; to: string; status: Verdict; transition?: string | null }): string {
   const head = r.transition ?? `${r.from} --${r.event}--> ${r.to}`;
   return `${head}${r.status === "allowed" ? "" : ` [${r.status}]`}`;
 }

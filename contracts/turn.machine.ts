@@ -1,7 +1,7 @@
 import { defineMachine } from "../src/machine/interpreter.js";
 
 // ① 轮循环（turn）状态表——这张表就是 loop 的控制流（docs/product/SPEC-state-machines.md §3）。
-// runtime 每一步先 interpret，allowed 才执行副作用；未列组合 = unknown → 本轮 error 终态。
+// runtime 每一步先 interpret：allowed 才执行副作用，rejected 行命中 = blocked（只回喂、状态不变），noop 不跑；未列组合 = unknown → 本轮 error 终态。
 
 export type TurnState = "deciding" | "executing_tools" | "done" | "max_steps" | "error";
 export type TurnEvent = "LLM_OK" | "LLM_FAILED" | "PARSED_TOOL_CALLS" | "PARSED_FINAL" | "PARSED_ERROR" | "TOOLS_DONE";
@@ -32,8 +32,8 @@ export const turnMachine = defineMachine<TurnState, TurnEvent, TurnFacts>({
   },
   rows: [
     {
-      id: "t-llm-ok", from: "deciding", event: "LLM_OK", to: "deciding", kind: "allowed", priority: "P0",
-      reason: "模型返回了文本，留在 deciding 等解析", effects: ["compact", "llm"],
+      id: "t-llm-ok", from: "deciding", event: "LLM_OK", to: "deciding", kind: "noop", priority: "P0",
+      reason: "模型返回了文本，状态不变，进入解析", effects: ["compact", "llm"],
       covered_by: [`${LOOP}::不需要工具时直接回复，只调一次 LLM`],
     },
     {
@@ -52,8 +52,8 @@ export const turnMachine = defineMachine<TurnState, TurnEvent, TurnFacts>({
       covered_by: [`${LOOP}::调用工具：结果以 tool 消息回填后模型再给最终答案`],
     },
     {
-      id: "t-parse-error", from: "deciding", event: "PARSED_ERROR", to: "deciding", kind: "allowed", guard: "hasStepsLeft", priority: "P0",
-      reason: "解析失败且还有步数：把错误当 tool 消息回喂，让模型重来", effects: ["parse"],
+      id: "t-parse-error", from: "deciding", event: "PARSED_ERROR", to: "deciding", kind: "rejected", reject_code: "PARSE_ERROR", guard: "hasStepsLeft", priority: "P0",
+      reason: "解析失败且还有步数：本步被拦下（blocked），把错误当 tool 消息回喂让模型重来；不执行任何工具", effects: ["parse"],
       covered_by: [`${LOOP}::模型输出坏 JSON 时，把解析错误当 tool 消息回喂，让模型自己纠正`],
     },
     {
@@ -68,7 +68,7 @@ export const turnMachine = defineMachine<TurnState, TurnEvent, TurnFacts>({
     },
     {
       id: "t-tools-done-cap", from: "executing_tools", event: "TOOLS_DONE", to: "max_steps", kind: "allowed", priority: "P0",
-      reason: "工具结果已回填但步数用尽：以「已达上限 + 最近三条工具结果」结束", effects: ["tool", "answer"],
+      reason: "工具结果已回填但步数用尽：以「已达上限 + 最近三条工具结果」结束。上限在工具跑完后才拦（拍板②）：把结果交还用户比省一次工具调用更有价值", effects: ["tool", "answer"],
       covered_by: [`${LOOP}::模型一直调工具时，到达单轮最大步数就停下并把已有信息交还用户`],
     },
   ],
