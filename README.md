@@ -24,6 +24,54 @@ npm run test:live        # 真实模型 5 个 smoke，需要 key
 bash scripts/gate.sh v0.3   # 一键门禁，证据落 docs/evidence/v0.3/（无 key 时 live 写 skipped）
 ```
 
+## 系统设计
+
+题目的四步循环就是 `contracts/turn.machine.ts` 那张表——runtime 每一步先 `interpret(state, event, facts)`，表允许才执行副作用：
+
+```
+用户输入 → deciding ──LLM_OK──▶ 解析 ──PARSED_FINAL────▶ done（返回给用户）
+                        │              ├──PARSED_TOOL_CALLS─▶ executing_tools ──TOOLS_DONE──▶ deciding（继续 loop）
+                        │              └──PARSED_ERROR───▶ blocked：错误回喂模型，本步不跑工具
+                        └──LLM_FAILED──▶ error        步数用尽 ──▶ max_steps（交还已有结果）
+```
+
+| 题目要求 | 落点 |
+|---|---|
+| 从零、不依赖框架 | 运行时依赖只有 OpenAI SDK（当 HTTP 客户端）；loop / 解析 / 注册表 / session / 压缩全部自写 |
+| 工具注册：名称 + 描述 + 参数 Schema，模型按 Schema 决策 | `src/tools/registry.ts`：`register(def)`，`specs()` 拼进 system prompt，`invoke()` 先校验 Schema（必填 / 类型 / 未知字段 / 枚举）再执行，结果经工具自己的 `compact` 精简、`redact` 脱敏后回填 |
+| 至少三个工具 | calculator（白名单字符，不 eval 任意代码）、search（mock 语料）、todo（挂在 session 上的有状态工具）、remember（写用户级记忆） |
+| 解析思考 / 工具调用 / 最终答案 | `src/protocol/parser.ts`：`<think>` `<tool_call>{json}` `<final>` 三段协议；只认开标签、JSON 靠配平大括号截取；接住真实模型实测的六种偏差（`<invoke>` 别名、裸 JSON、`<tool_code>` 外包、`<function=…>` 变体、闭合写成开标签、`<final>` 重复/无闭合）；解析错误回喂模型自纠，永不抛异常 |
+| 原生 function calling | `--native-tools`：厂商 `tool_calls` 转成同一套标签走同一条解析路径 |
+| session：用户 A 两个窗口独立、随时接着聊 | `(userId, sessionId)` 定位一个会话；历史、有状态工具的数据袋、轮次计数都在会话上；文件存储每会话一个 JSON，重进即续 |
+| 最大轮次 | 两层：一次输入内最多 8 次模型决策（安全阀，到顶交还最近三条工具结果）；会话历史超 40 条或 12k 字符触发压缩 |
+| 异常处理 | 模型调用指数退避重试 2 次后以可读错误结束；工具抛错 / 参数错 → `[error]` 结果回喂；解析失败 → blocked 回喂；表里没列的 (状态, 事件) → unknown，不执行副作用、记 trace、error 终态 |
+| trace / 执行日志 | `trace/<session>.jsonl`，一次状态转移一行：`trace_id`（一轮）、`transition`（行 id）、`status`、每个模型 / 工具调用作为 effect 带 `request_id`、耗时、token、预览；CLI 实时回显 |
+
+## Context 与 memory：放什么、何时召回、放在哪
+
+**进 context 的**（每次模型调用的消息列表，`src/session/context.ts::assembleMessages`）：
+
+1. system prompt：角色 + 协议 + 规则 + 工具清单（含 Schema 原文）+ **用户级记忆块**（见下）
+2. 压缩摘要（如果有）：一条 system 消息「此前对话摘要」
+3. 会话历史：用户输入、模型的工具调用文本、**精简后的**工具结果、最终答案
+4. 本轮消息：本轮全部往返，含当轮的 `<think>`
+
+**不进的**：历史轮的思考过程——轮次结束时剥掉（`stripThink`），它只对当轮有用；工具结果的原文超过 1500 字符的部分。
+
+**压缩**（题目要的「基础压缩」）：历史超阈值时，保留最近 12 条原文，切点回退到 user 消息（不把一轮 tool_call / tool 从中间切断），更老的部分让模型压成 ≤200 字要点（累积在会话上）；模型失败退回规则压缩（保留用户原话 + 答案首句）。追问仍能接上，因为最近几轮原文都在。
+
+**追问**：纯对话追问靠历史里的用户输入 + 最终答案；带工具的追问（「把第一条标完成」）靠 todo 的状态挂在会话上——工具结果本身已精简，但状态在 `session.state` 里完整保留。
+
+**用户级 memory**（跨会话）：
+
+| | 做法 |
+|---|---|
+| 写入时机 | 模型显式调 `remember(key, value)`——用户说「记住…」或透露稳定信息（称呼、城市、职业、长期偏好）；没调用就不算记住，prompt 禁止口头「已记下」 |
+| 召回时机 | **每轮组 context 时**，不做检索：`memory.load(userId)` 全量取出 |
+| 放置位置 | system prompt **尾部**的 `<memory>` 块，逐条 `- key: value`，标明是过去的观察不是规则 |
+| 为什么不检索 | 条目少时全量注入比检索稳，且「召回时机 / 位置」一句话说清；超过 context 预算 10% 再先按「最久没被用到」丢事件记忆（称呼偏好类常驻记忆不丢），仍不够才上向量召回——见 `docs/NEXT_STEPS.md` |
+| 隔离 | 按 userId 一个文件；别的用户看不到；trace 里 remember 的 value 只记长度 |
+
 ## 指路
 
 - 入口（七章节）：`AGENTS.md`
