@@ -95,7 +95,7 @@ export function createAgent(o: AgentOptions) {
     let state: TurnState = machine.initial;
     let facts = protocol.initialFacts(maxToolSteps);
     let seq = 0;
-    /** 在转移之前发生、要挂到下一条转移上的副作用（目前只有轮首的 compact） */
+    /** 在转移之前发生、要挂到下一条转移上的副作用（轮首的 compact 与记忆截断 warning） */
     let pendingEffects: Effect[] = [];
     let result: RunResult | undefined;
 
@@ -106,6 +106,7 @@ export function createAgent(o: AgentOptions) {
     }
 
     const memoryBlock = renderMemory(memory.load(userId), ctxOpts.memoryMaxChars);
+    if (memoryBlock.truncated) pendingEffects.push({ kind: "memory_truncated", ...memoryBlock.truncated, limit: ctxOpts.memoryMaxChars });
     const systemPrompt = buildSystemPrompt(tools.specs(), memoryBlock.block);
     const working: ChatMessage[] = [{ role: "user", content: input }];
     const toolCtx = { sessionState: session.state, userId, sessionId };

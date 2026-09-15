@@ -202,3 +202,23 @@ describe("用户级 memory：上限与截断（#12）", () => {
     for (let i = 60 - kept; i < 60; i++) expect(block).toContain(`k${String(i).padStart(2, "0")}: `);
   });
 });
+
+describe("用户级 memory：截断进 trace（#12）", () => {
+  it("记忆被截时，本轮第一条转移的 effects 里有一条 memory_truncated（含总数、保留数、上限），与 compact 同一挂法；未截时没有", async () => {
+    const memory = new MemoryUserMemoryStore();
+    for (let i = 0; i < 60; i++) memory.set("A", `k${String(i).padStart(2, "0")}`, "x".repeat(40));
+    const llm = new FakeLLM(["<final>ok</final>", "<final>ok</final>"]);
+    const trace = new MemoryTraceSink();
+    const agent = createAgent({ llm, trace, memory });
+    await agent.run({ userId: "A", sessionId: "w1", input: "hi" });
+    const first = trace.records.find((r) => r.trace_id === "A/w1/1" && r.seq === 1)!;
+    expect(first.effects.map((e) => e.kind)).toEqual(["memory_truncated", "llm"]);
+    const fx = trace.effects("memory_truncated")[0];
+    const shown = llm.calls[0][0].content.match(/^- k\d\d: /gm)!.length;
+    expect(fx).toMatchObject({ total: 60, kept: shown, limit: 1200 });
+    expect(fx.kept).toBeLessThan(60);
+    // 别的用户（没有记忆）这一轮不该有这条 effect
+    await agent.run({ userId: "B", sessionId: "w1", input: "hi" });
+    expect(trace.records.filter((r) => r.trace_id === "B/w1/1").flatMap((r) => r.effects).some((e) => e.kind === "memory_truncated")).toBe(false);
+  });
+});
