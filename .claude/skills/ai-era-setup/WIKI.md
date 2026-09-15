@@ -19,6 +19,14 @@
 - **工具坑：Storybook 端口被占静默换端口；worktree 的 `.git` 是文件需固定 `TEST_ROOT`；`kill $SB` 留下 dev server** — Web 参照仓 · NEXT_STEPS · 2026-09-14 · 已进 1.1.0 `adopt-ai-era` 3.5
 - **探索器抓不到「unknown 行谎报成 allowed」**：allowed 自环不违反通用不变量，只有契约层（盘上 JSON == toContract、declared_unknown 断言）红——变异验证必须同时看契约层与探索层 — runtime 参照仓 · PR #6 B3 · 2026-09-15 · 待进 model-e2e「变异」段
 - **「条数单一事实源」闸把并行 agent 逼去绕闸**：四个并行票里三个把新测试放到 `test/unit` 之外的目录躲开条数对账（因为派工禁碰 TEST_REPORT），第四个索性改了条数表——同一个闸、两种绕法。修法：守文档测试按 `test/**` 全量计数，且派工时明说「条数表允许改、报告正文不许改」 — runtime 参照仓 · #10–#13 · 2026-09-15 · 待进 agents-md / adopt-ai-era 3.5
+- **门禁命令接管道会吞退出码**：`vitest … | grep | head` 的退出码是 head 的，红了照样往下 commit/push；一次真发生（runtime 参照仓 AGENTS 九章节那次，两条红被提交后才发现）。修法：门禁命令单独跑、存 `$?` 再判，或用 gate.sh — runtime 参照仓 · 2026-09-15 · 待进 implement / to-tickets 的提交纪律
+
+- **同一族里两份 skill 对「回退验红」说反话**：`honest-evidence` 说做了 TDD 不再回退验红，`electron-real-machine-verify` 说撤回修复验红是回报最高的纪律；agent 同时加载时只能随机取一个 — ai-era-skills · writing-for-agents 审阅 · 2026-09-15 · 已进 2.0.0 之上未升版：只留 honest-evidence 一处
+- **WIKI 层轶事渗进 SKILL.md**（「10 个洞」「PR #32」「实测踩过」等）：出处不改变 agent 行为，只付 token；且违反本文件自己定的「执行者不读 WIKI」 — ai-era-skills · writing-for-agents 审阅 · 2026-09-15 · 已进 2.0.0 之上未升版：轶事只留本文件
+- **`not_run` 与 `skipped` 曾混写**：Firefox 下载被拦是 not_run（没尝试），WebKit 本机判定跳过是 skipped（尝试了被判跳过） — Web 参照仓 · #25 · 2026-09-13 · 已进 `honest-evidence` 口径表（原在正文括号里，本轮搬来）
+- **探针夹具的泄漏比探针本身难做对**：删文件不够，git 历史、SPEC 里的结论段、`docs/standards` 副本都会把答案带进去；agent 会自己坦白读到了什么（三次里两次），所以「读到什么」必须是探针报告的固定一栏 — runtime 参照仓探针 · 2026-09-15 · 已进 PROBES.md
+- **子代理调不到手动技能**：`disable-model-invocation: true` 的技能对子代理不存在，P3 三次都自己按问题库过题；拷问必须由主会话做 — 2026-09-15 · 已进 ai-era-setup 第 3 步
+- **混合输出（一个 tool_call 好、一个坏）现行为是执行好的那些并回喂错误**：探针 P3-c 读 runtime 参照仓代码指出它与「解析失败不跑工具」的直觉冲突；是否改成「errors 非空就整体回喂」待拍板 — runtime 参照仓 · 2026-09-15 · 待拍板（已记进该仓 NEXT_STEPS）
 
 
 ## B. 成功策略
@@ -40,6 +48,7 @@
 - **对照报告列出的 4 项未做产物**：request_id；白名单落盘 vs answer 全文；journeys.json + 三态判分；随机探索 / 变异 / gate.sh / ARCHITECTURE 机器清单 / not_run 词汇 — runtime 参照仓 · 对照报告 · 2026-09-15 · 状态：待拍板（仓库内欠账，是否要求 `adopt-ai-era-runtime` 切片清单强制含这几项，一并拍）
 
 - **2.0.0 重排：四动词是日常、心得是默认、AGENTS.md 是分发器**——`ai-era` / `setup-ai-era` / `adopt-ai-era` / `adopt-ai-era-runtime` / `agents-md` 合成 `ai-era-setup`（Web / runtime 是分支不是技能），四个动词族化，新增 `ai-era-maintain`，AGENTS.md 加第 9 节「什么时候用哪个 skill」表与版本行 — ai-era-skills · 2026-09-15 · 状态：作者 2026-09-15 提出并进 2.0.0；**未经探针**
+- **按 `writing-for-agents` 九条整治自研 skill 的写法**（单一事实源、披露、去轶事、去本机路径、正向表述、指针去重）— ai-era-skills · 2026-09-15 · 状态：已改进 SKILL.md，**未升版**（第 1 条是执行规则改动，按 `ai-era-maintain` §4 须过探针；其余是写法）；探针待跑
 
 ## D. 验证结果
 
@@ -51,3 +60,4 @@
 - runtime 参照仓 v0.4：四票并行约 10 分钟各自完成、审阅 + rebase + 合并约 40 分钟；171 单测、live 5/5、judge.py 54 轮全 passed — 2026-09-15
 
 - **2.0.0：无探针。** 结构重排 + 四动词加族内约定段，属执行规则改动，但探针仍只定义未跑；1.1.0 → 2.0.0 之间的每一次升版都未经探针 — ai-era-skills · 2026-09-15
+- **2.0.0 探针实跑（2026-09-15，claude-opus / Claude Code 子代理）**：P1 埋洞 2/2 通过（7 与 7–8 次工具调用，两处埋洞都以失败测试 + ddmin 最小序列红出并指到行；附带抓到参照解释器未暴露 `guards`、终态无 noop 行、covered_by 缺行）；P2 口径 3/3 通过（含合流改写口径词后一次；前两次因 §13 原文不在 skill 里把八条全填未知 → 内联后第三次逐条给出等级与理由）；P3 换算 3/3 通过判据（判 runtime 分支、审计逐条 file:line、Q1–Q11 + 第二轮全有决定、切片带红测名、未跑脚手架、未写镜像组件），但夹具两次有泄漏——a 用 `git show HEAD:` 读到被删的决定文档、c 读到 SPEC 里五句结论——b 干净。三个探针均满足「同一版本至少 2 次」。结论：2.0.0 → 2.0.1 是第一次**经探针**的升版

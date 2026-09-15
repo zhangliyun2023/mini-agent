@@ -182,7 +182,7 @@ export function defineMachine<F = Record<string, unknown>>(def: MachineDef<F>) {
     return c;
   }
 
-  return { feature, states, events, initial: initial ?? stateNames[0], transitions, invariants, interpret, enumerate, reachable, toContract };
+  return { feature, states, events, initial: initial ?? stateNames[0], transitions, invariants, guards, interpret, enumerate, reachable, toContract };
 }
 
 export type Machine<F = Record<string, unknown>> = ReturnType<typeof defineMachine<F>>;

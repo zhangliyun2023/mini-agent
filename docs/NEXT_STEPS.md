@@ -9,6 +9,7 @@
 
 ## 复盘线（#19 之后）
 
+- **混合输出待拍板**：模型一次输出里一个 tool_call 合法、一个坏 JSON 时，现在执行合法的那些并回喂错误（`t-tools` 行 + parser 消息）。探针审计认为它与「解析失败不跑工具」的直觉冲突；两种修法：errors 非空整体回喂（更保守，多一次模型调用），或维持现状并在不变量 ① 的文字里写明「只针对无任何合法调用的那一步」。拍板后改表。
 - **整合器先看已有记忆**：live smoke 里模型把 `remember` 已写的事实换措辞再写一遍，成了 conflict；prompt 里给它现有条目，同义就刷新不新增。
 - **partial_read 可补跑**：现在任何已存在的 journal 都当「已定」只递增 attempts；partial 应允许在转写修好后补跑一次（journal 加 `failed` 或允许 partial 覆盖）。
 - review 表的答案卷进 `contracts/journeys.json`（现在内联在测试里）；证据工具（`judge.py` / `live-evidence`）按 `feature` 分表查契约，把 `trace/reviews/` 也纳入。

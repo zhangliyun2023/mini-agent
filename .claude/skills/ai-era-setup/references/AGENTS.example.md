@@ -24,7 +24,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 4. **一次用户意图一个 `trace_id`，一次 HTTP 一个 `request_id`。** 两个 id 都要落到 `runs / audit / events` 行、worker `TRACE` 日志、失败 toast 与候选面板。新意图 = 离开初始状态 或 行上标 `effects.intent`。
 5. **对答案只看两样：答案卷 + 镜像组件。** `contracts/journeys.json` 是期望的转移序列；`node scripts/machine-check.mjs --db <sqlite>` 判分；页面上 `[data-machine-state] [data-machine=<feature>]` 的 `data-state` 就是「UI 说机器在哪」。**只有 `public/platform/machine-state.mjs` 这一处绑定需要看源码核对**（Storybook「状态机/镜像组件」story），其余一律看答案卷。
 6. **先写红的测试，红必须真红过。** 断言打在用户可见契约上：可见文案、焦点、请求次数、Cookie、URL、DOMRect、computed style、接口返回、DB 行、worker 日志。**不断类名、不断隐藏元素、不断中间函数。** 例外（纯文档、纯重命名、探针脚本）要显式说出来。
-7. **报告口径分层，SKIPPED ≠ 通过，harness 自测 ≠ 模型结果。** 已验证（Next E2E）/ 已验证（Node/HTTP）/ demo / 未运行 / skipped 五个词不混用。少量 smoke 不写成可靠率。
+7. **报告口径分层，SKIPPED ≠ 通过，harness 自测 ≠ 模型结果。** 已验证（Next E2E）/ 已验证（Node/HTTP）/ demo / harness 自测 / not_run / skipped 一词一义。少量 smoke 不写成可靠率。
 8. **候选不改草稿，应用不发布，发布只移指针。** 坏的候选（沙箱加载或点击报错）永远不以 ready 展示；无浏览器如实标 skipped，不假装通过。
 9. **AI 侧分层写在 prompt 里，用户看不见。** 可调项进 `config.json` / `CONFIG`，核心循环独立；不做用户可见的参数表单。
 10. **不删 `requireLocal()`。** 本地适配器只允许回环地址；公网走 hosted 模式（未做），不是拆门。
@@ -103,4 +103,4 @@ bash scripts/verify.sh v0.<n>                         # 一次跑完上面全部
 | 审 diff | — | `code-review` |
 | 改 AGENTS.md / skill 文档 | — | `writing-for-agents` |
 
-本仓技能族：ai-era-skills 2.0.0
+本仓技能族：ai-era-skills 2.0.1
