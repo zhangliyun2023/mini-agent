@@ -12,6 +12,25 @@ const CORPUS: Array<{ title: string; snippet: string }> = [
   { title: "咖啡因半衰期", snippet: "成人体内咖啡因半衰期约 5 小时，下午 3 点后饮用可能影响睡眠。" },
 ];
 
+// 2026-09-15 live 暴露（#3）：模型搜「上海今天天气」（无空格），语料是「上海今日天气」，
+// 按空格分词后整串子串匹配命中不了。改为：去停用词 → 中文按二元组切、非中文按整词，
+// 任一片段命中即计分，命中片段多者靠前。
+const STOP_WORDS = ["今天", "今日", "现在", "怎么样", "怎样", "如何", "是什么", "什么", "多少", "请问", "帮我", "一下", "的", "吗", "呢", "了", "是"];
+const CJK_RUN = /[一-鿿]+/g;
+
+/** 查询 → 匹配片段：中文二元组（单字保留）+ 小写的非中文整词 */
+export function searchTerms(query: string): string[] {
+  let q = String(query);
+  for (const w of STOP_WORDS) q = q.split(w).join(" ");
+  const terms = new Set<string>();
+  for (const run of q.match(CJK_RUN) ?? []) {
+    if (run.length === 1) terms.add(run);
+    for (let i = 0; i + 1 < run.length; i++) terms.add(run.slice(i, i + 2));
+  }
+  for (const w of q.replace(CJK_RUN, " ").toLowerCase().split(/[\s，。、？！：]+/).filter(Boolean)) terms.add(w);
+  return [...terms];
+}
+
 export const searchTool: ToolDefinition = {
   name: "search",
   description: "搜索公开信息（天气、新闻、常识）。返回最多 3 条标题+摘要。",
@@ -21,11 +40,11 @@ export const searchTool: ToolDefinition = {
     required: ["query"],
   },
   handler: async ({ query }) => {
-    const terms = String(query).split(/\s+/).filter(Boolean);
-    const scored = CORPUS.map((doc) => ({
-      doc,
-      score: terms.filter((t) => (doc.title + doc.snippet).includes(t)).length,
-    }))
+    const terms = searchTerms(query);
+    const scored = CORPUS.map((doc) => {
+      const text = (doc.title + doc.snippet).toLowerCase();
+      return { doc, score: terms.filter((t) => text.includes(t)).length };
+    })
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 3);
