@@ -1,0 +1,146 @@
+{
+  "ran_at": "2026-09-15T10:39:28.270Z",
+  "model": "deepseek-flash",
+  "baseURL": "https://api.deepseek.com",
+  "input": {
+    "userId": "smoke-u1",
+    "date": "2026-09-15",
+    "sessions": [
+      {
+        "sessionId": "s-work",
+        "lines": [
+          {
+            "ts": "2026-09-14T11:00:00+08:00",
+            "userId": "smoke-u1",
+            "sessionId": "s-work",
+            "turn": 1,
+            "traceId": "t-1",
+            "role": "user",
+            "content": "我是做后端的，平时用 Go。帮我算一下 17*23"
+          },
+          {
+            "ts": "2026-09-14T11:00:00+08:00",
+            "userId": "smoke-u1",
+            "sessionId": "s-work",
+            "turn": 1,
+            "traceId": "t-2",
+            "role": "assistant",
+            "content": "<think>调计算器</think><tool_call>{\"name\":\"calculator\",\"arguments\":{\"expression\":\"17*23\"}}</tool_call>"
+          },
+          {
+            "ts": "2026-09-14T11:00:00+08:00",
+            "userId": "smoke-u1",
+            "sessionId": "s-work",
+            "turn": 1,
+            "traceId": "t-3",
+            "role": "tool",
+            "content": "391",
+            "name": "calculator"
+          },
+          {
+            "ts": "2026-09-14T11:00:00+08:00",
+            "userId": "smoke-u1",
+            "sessionId": "s-work",
+            "turn": 1,
+            "traceId": "t-4",
+            "role": "assistant",
+            "content": "<final>17*23 = 391。</final>"
+          },
+          {
+            "ts": "2026-09-14T12:00:00+08:00",
+            "userId": "smoke-u1",
+            "sessionId": "s-work",
+            "turn": 2,
+            "traceId": "t-5",
+            "role": "user",
+            "content": "对了，明天 3 点要交周报，别让我忘了"
+          },
+          {
+            "ts": "2026-09-14T12:00:00+08:00",
+            "userId": "smoke-u1",
+            "sessionId": "s-work",
+            "turn": 2,
+            "traceId": "t-6",
+            "role": "assistant",
+            "content": "<final>好，明天 3 点交周报，到时候提醒你。</final>"
+          }
+        ]
+      },
+      {
+        "sessionId": "s-chat",
+        "lines": [
+          {
+            "ts": "2026-09-14T11:00:00+08:00",
+            "userId": "smoke-u1",
+            "sessionId": "s-chat",
+            "turn": 1,
+            "traceId": "t-7",
+            "role": "user",
+            "content": "今天下雨了，有点困"
+          },
+          {
+            "ts": "2026-09-14T11:00:00+08:00",
+            "userId": "smoke-u1",
+            "sessionId": "s-chat",
+            "turn": 1,
+            "traceId": "t-8",
+            "role": "assistant",
+            "content": "<final>下雨天确实容易犯困，喝杯热茶吧。</final>"
+          }
+        ]
+      }
+    ]
+  },
+  "result": {
+    "entries": [
+      {
+        "key": "role_backend_engineer",
+        "value": "用户是后端开发工程师。",
+        "kind": "stated",
+        "confidence": 0.98,
+        "source": {
+          "sessionId": "s-work",
+          "turn": 1
+        },
+        "date": "2026-09-15",
+        "status": "active"
+      },
+      {
+        "key": "primary_language_go",
+        "value": "用户日常主要使用 Go 语言。",
+        "kind": "stated",
+        "confidence": 0.95,
+        "source": {
+          "sessionId": "s-work",
+          "turn": 1
+        },
+        "date": "2026-09-15",
+        "status": "active"
+      },
+      {
+        "key": "weekly_report_deadline",
+        "value": "用户需在 2026-09-15 下午 3 点前提交周报，并希望被提醒。",
+        "kind": "stated",
+        "confidence": 0.95,
+        "source": {
+          "sessionId": "s-work",
+          "turn": 2
+        },
+        "date": "2026-09-15",
+        "status": "active"
+      }
+    ],
+    "highlights": [
+      {
+        "text": "下午三点是周报的提交截止时间，记得在此之前完成并发出。",
+        "why_today": "due_today",
+        "source": {
+          "sessionId": "s-work",
+          "turn": 2
+        }
+      }
+    ],
+    "warnings": [],
+    "method": "llm"
+  }
+}

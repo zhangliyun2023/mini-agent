@@ -1,4 +1,4 @@
-| `npm test` | **22 文件 205 条全绿**（#19 R3 记忆条目后；#12 记忆上限后 171 条；# TEST_REPORT — mini-agent（2026-09-15；v0.2 一节见 §7，v0.3 一节见 §8）
+| `npm test` | **23 文件 214 条全绿**（#19 R4 整合生成器后；R3 记忆条目后 205 条；#12 记忆上限后 171 条；# TEST_REPORT — mini-agent（2026-09-15；v0.2 一节见 §7，v0.3 一节见 §8）
 
 对标 `docs/standards/2026-09-01-ai时代软件状态机测试与可观测性.md` §13 与 §17.1：**分层写，不把前一层冒充后一层**。
 
@@ -35,11 +35,12 @@
 | `test/unit/session-context.test.ts` | 假模型 | 14 |
 | `test/unit/invariants.test.ts` | 假模型（含真落盘） | 12 |
 | `test/unit/transcript.test.ts` | 假模型（含真落盘） | 4 |
-| 合计 | 22 文件 | 205 |
+| 合计 | 23 文件 | 214 |
 | `test/unit/review-present.test.ts` | 纯函数 | 8 |
 | `test/unit/review-window.test.ts` | 纯函数 | 8 |
 | `test/unit/review-collect.test.ts` | 纯函数（夹具 TranscriptReader） | 8 |
 | `test/unit/memory-entries.test.ts` | 假模型 + 纯函数 + 真落盘 | 6 |
+| `test/unit/review-consolidate.test.ts` | 假模型（FakeLLM）+ 纯函数 | 9 |
 
 ## 1. 第一层：纯函数通过（不碰模型、不碰 runtime）
 

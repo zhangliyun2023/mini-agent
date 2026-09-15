@@ -1,0 +1,26 @@
+
+ RUN  v3.2.7 /private/tmp/ma-r4-consolidate
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/unit/review-consolidate.test.ts [ test/unit/review-consolidate.test.ts ]
+Error: Cannot find module '../../src/review/consolidate.js' imported from '/private/tmp/ma-r4-consolidate/test/unit/review-consolidate.test.ts'
+ ❯ test/unit/review-consolidate.test.ts:2:1
+      1| import { describe, it, expect } from "vitest";
+      2| import { consolidate } from "../../src/review/consolidate.js";
+       | ^
+      3| import { FakeLLM } from "../../src/llm/fake.js";
+      4| import type { TranscriptLine } from "../../src/review/types.js";
+
+Caused by: Error: Failed to load url ../../src/review/consolidate.js (resolved id: ../../src/review/consolidate.js) in /private/tmp/ma-r4-consolidate/test/unit/review-consolidate.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../../Users/zhangly04/dev/mini-agent/node_modules/vite/dist/node/chunks/config.js:22739:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  04:36:27
+   Duration  154ms (transform 18ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 38ms)
+
