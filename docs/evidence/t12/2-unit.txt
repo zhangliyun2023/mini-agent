@@ -1,0 +1,17 @@
+# 2026-09-15T07:51:48Z fea47fb
+ ✓ test/unit/docs.test.ts (8 tests) 6ms
+ ✓ test/unit/contracts.test.ts (9 tests) 6ms
+ ✓ test/unit/live-evidence.test.ts (3 tests) 12ms
+ ✓ test/unit/journeys.test.ts (8 tests) 11ms
+ ✓ test/unit/agent-loop.test.ts (11 tests) 8ms
+ ✓ test/unit/invariants.test.ts (12 tests) 11ms
+ ✓ test/unit/generator.test.ts (16 tests) 10ms
+ ✓ test/unit/session-context.test.ts (14 tests) 53ms
+ ✓ test/unit/machine.test.ts (10 tests) 6ms
+ ✓ test/unit/explore.test.ts (6 tests) 165ms
+ ✓ test/unit/parser.test.ts (16 tests) 4ms
+ ✓ test/unit/tools.test.ts (18 tests) 6ms
+ Test Files  12 passed (12)
+      Tests  131 passed (131)
+   Duration  574ms (transform 396ms, setup 0ms, collect 975ms, tests 297ms, environment 1ms, prepare 815ms)
+exit 0 (expected 0)
