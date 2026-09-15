@@ -90,6 +90,7 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 | `test/unit/llm-retry.test.ts` | 假模型 | 401 一次即 error；429 / 5xx / 超时 / 网络错指数退避重试，逐次尝试进 trace；不传 unknownTransition 不抛出 |
 | `test/unit/judge-py.test.ts` | 子进程真跑 | `python3 evals/judge.py` 对已提交 live trace 全 passed 且与 TS 侧数字一致；篡改一条记录退出码 1 并点名；空目录 not_observed 退出码 2；契约声明是判据来源 |
 | `test/unit/native-tools.test.ts` | 假模型 + 本地 HTTP 端点 | 原生模式 system prompt 不教标签；assistant.tool_calls 与 role=tool/tool_call_id 配对进本轮与历史并原样回放；llm effect 标 mode；压缩转写含 toolCalls |
+| `test/unit/unknown-transition-default.test.ts` | 假模型 | 不传 unknownTransition 时未列转移以 error 终态结束、不抛出（运行时默认，不读测试环境变量） |
 | `test/unit/agent-loop.test.ts` | 假模型 | 循环行为、blocked 回喂、残缺表验证闸拦得住（error 终态 / 测试模式抛出） |
 | `test/unit/session-context.test.ts` | 假模型 | 窗口隔离、追问、think 剥离、压缩、memory、trace 序列 / request_id / redact |
 | `test/unit/parser.test.ts` | 纯函数 | 协议解析与真实模型偏差 |

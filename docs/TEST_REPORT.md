@@ -8,7 +8,7 @@
 |---|---|---|
 | `npm run typecheck` | 通过 | `tsc --noEmit`，含 `contracts/` `scripts/` |
 | `npm run contracts:check` | 3 份契约 0 漂移 | turn / session / session-runtime |
-| `npm test` | **16 文件 170 条全绿**（#12 记忆上限后；v0.4 解析器补丁后 128 条；v0.3 125 条见 §8；历史：v0.1 9 文件 89 条 → v0.2 11 文件 113 条） | 不需要 key。**逐文件条数只写在下面这张表里**，`test/unit/docs.test.ts` 用源码 `it(` 静态计数（`it.each` 行按 `// ×N` 标记展开）逐文件对账，总数与文件数也对；其他文档不再另写数字 |
+| `npm test` | **17 文件 171 条全绿**（#12 记忆上限后；v0.4 解析器补丁后 128 条；v0.3 125 条见 §8；历史：v0.1 9 文件 89 条 → v0.2 11 文件 113 条） | 不需要 key。**逐文件条数只写在下面这张表里**，`test/unit/docs.test.ts` 用源码 `it(` 静态计数（`it.each` 行按 `// ×N` 标记展开）逐文件对账，总数与文件数也对；其他文档不再另写数字 |
 | `npm run test:live` | **5/5**（v0.3，UTC 06:27，18.4s）；afterAll 不变量检查真跑：7 文件 / 9 轮 / 42 条转移，25 allowed + 17 noop，0 unknown，0 违反 | 本机有 key；详见 §3 与 §8 |
 
 ### 条数（唯一事实源）
@@ -28,10 +28,11 @@
 | `test/unit/llm-retry.test.ts` | 假模型 | 6 |
 | `test/unit/judge-py.test.ts` | 子进程真跑（Python 判分器） | 4 |
 | `test/unit/native-tools.test.ts` | 假模型 + 本地 HTTP 端点 | 8 |
+| `test/unit/unknown-transition-default.test.ts` | 假模型 | 1 |
 | `test/unit/agent-loop.test.ts` | 假模型 | 11 |
 | `test/unit/session-context.test.ts` | 假模型 | 14 |
 | `test/unit/invariants.test.ts` | 假模型（含真落盘） | 12 |
-| 合计 | 16 文件 | 170 |
+| 合计 | 17 文件 | 171 |
 
 ## 1. 第一层：纯函数通过（不碰模型、不碰 runtime）
 
@@ -85,6 +86,27 @@
 ### 换模型 smoke（2026-09-15，DeepSeek `deepseek-flash`，官方端点）
 
 只改 `.env` 三行（`OPENAI_BASE_URL=https://api.deepseek.com`、`MODEL=deepseek-flash`），runtime 与 prompt 一字未动：`npm run test:live` **5/5 + afterAll 证据检查 0 违反**，单次模型调用约 1.0–1.5s（qwen3-max 约 1–3s）。CLI 三句（计算 / 记两条待办 / 标完成）全部按表走，一步两个工具调用正常。转移记录见 `evals/live-trace/` 最新两个目录。仍是少量 smoke，不写可靠率；也没有观察到 qwen3-max 那六种标签偏差是否在 deepseek 上出现——样本太小，不下结论。
+
+## 9. v0.4（#10–#13 并行四票 + #14 收尾）—— 门禁数字与证据
+
+证据目录 `docs/evidence/v0.4/`（`bash scripts/gate.sh v0.4`，2026-09-15 UTC 07:59）。四票由四个 agent 在各自 worktree 并行完成、各开 PR（#15 #16 #17 #18），审阅者逐个 rebase 到 main、解冲突（`agent.ts` / `trace.ts` 三处）、把各票放在 `test/` 子目录里的测试搬回 `test/unit` 并同步条数表后合并。
+
+| 步骤 | 结果 | 口径 |
+|---|---|---|
+| typecheck | 0 错 | 已验证（进程内） |
+| 单测 | **17 文件 171 条全绿**（v0.3 的 125 → +3 记忆上限 +27 重试分类 +4 Python 判分 +8 原生 FC +1 unknown 默认值 +3 解析器补丁） | 已验证（进程内） |
+| 契约漂移 | 3 份 0 漂移 | 已验证（进程内） |
+| 真实模型 | **5/5 + afterAll 证据检查 0 违反**（DeepSeek `deepseek-flash`；7 文件 / 9 轮 / 39 条转移，23 allowed + 16 noop；原生场景 `mode: native`）；trace 入库 `evals/live-trace/2026-09-15-07-59*` | 少量 smoke，不写可靠率 |
+| Python 判分 | `evals/judge.py evals/live-trace`：**42 文件 / 54 轮 / 243 条转移，54 passed，0 failed，0 unknown**，与 TS `checkTraceFiles` 口径一致 | 已验证（进程内） |
+
+四票各自的红测、红输出与偏差在 `docs/evidence/t10/ … t13/REPORT.md`。要点：
+
+- **#10 原生 function calling**：原生模式 system prompt 不再教标签、工具只经 API `tools`；`tool_calls` 以真 assistant / tool 消息（带 `tool_call_id`）进历史并原样回放；llm effect 标 `mode`。这是 #4「模型在原生模式下吐 `<function=…>` 文本」的根源修法——两套协议不再打架。一次 live 不能证明偶发不再出现，只能说冲突已消除。
+- **#11 重试分类**：401 / 400 / 404 一次即 error 终态；429 / 5xx / 超时 / 网络错指数退避（sleep 可注入，测试不真等）；逐次尝试 `tries[{n, errorClass, waitMs}]` 进 trace。`unknownTransition` 默认 `error`，全仓无 `VITEST`。
+- **#12 记忆上限**：记忆块 ≤ 1200 字符（历史预算的 10%），从最新往回装、截最老，`memory_truncated` 挂在轮首转移；历史预算与记忆预算分开，一条变异锁定。
+- **#13 Python 判分器**：与 TS oracle 对同一批证据结论一致；篡改一条记录两侧同样点名。④ 三处对齐凭 trace 判不了，两侧都不含。
+
+not_run：无。skipped：无。未做：混合历史（先文本后原生）无测试；CLI `--native-tools` 未手工冒烟；四票均无变异测试（B3 那次仍是唯一一次）。
 
 ## 4. 五条 P0 不变量（D3 四条 + ⑤ 副作用对账）
 
