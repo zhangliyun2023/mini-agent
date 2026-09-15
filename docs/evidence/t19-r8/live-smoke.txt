@@ -1,0 +1,137 @@
+# live smoke（真实模型 deepseek-flash，一次；2026-09-15T10:52:32Z）
+# data 目录：临时目录（不入库）；trace 在 trace/s1.jsonl（不入库）
+
+## 1. npm run chat -- --user A --session s1 --quiet --data <tmp>（管道输入两轮 + /exit）
+你> 我叫张三，在做一个叫 mini-agent 的项目。
+助手> 好的张三，已经记下你的名字和正在做的 mini-agent 项目了，后续有需要随时说。
+你> 明天下午 3 点交周报，帮我记一下。
+助手> 已记入待办清单：
+
+1. [ ] 明天下午 3 点交周报
+
+需要的时候可以说“列出待办”来查看，完成后告诉我，我帮你标记完成。
+
+## 2. npm run review -- --user A --date 2026-09-16 --tz Asia/Shanghai --deliver s1 --data <tmp>   （exit=0）
+### stdout
+review A 2026-09-16 Asia/Shanghai → ok（attempts=1, coverage=full, entries_written=3）
+今天到期：下午 3 点前要把周报交上去，昨天已记入待办。
+delivered_to: s1
+### stderr
+review · model=deepseek-flash · data=/tmp/ma-r8-live.Iz5D
+
+## 3. journal <tmp>/reviews/A/2026-09-16.json
+{
+  "userId": "A",
+  "date": "2026-09-16",
+  "tz": "Asia/Shanghai",
+  "attempts": 2,
+  "coverage": "full",
+  "status": "ok",
+  "entries_written": 3,
+  "brief": {
+    "highlights": [
+      {
+        "text": "下午 3 点前要把周报交上去，昨天已记入待办。",
+        "why_today": "due_today",
+        "source": {
+          "sessionId": "s1",
+          "turn": 2
+        }
+      }
+    ],
+    "text": "今天到期：下午 3 点前要把周报交上去，昨天已记入待办。"
+  },
+  "delivered_to": [
+    "s1"
+  ],
+  "method": "llm",
+  "updatedAt": "2026-09-15T10:52:32.702Z"
+}
+
+## 4. 记忆 <tmp>/memory/A.memory.json（复盘后）
+{
+  "entries": [
+    {
+      "key": "name",
+      "value": "张三",
+      "kind": "stated",
+      "confidence": 1,
+      "source": {
+        "sessionId": "s1",
+        "turn": 1
+      },
+      "date": "2026-09-15",
+      "status": "active"
+    },
+    {
+      "key": "project",
+      "value": "mini-agent",
+      "kind": "stated",
+      "confidence": 1,
+      "source": {
+        "sessionId": "s1",
+        "turn": 1
+      },
+      "date": "2026-09-15",
+      "status": "active"
+    },
+    {
+      "key": "name",
+      "value": "用户名叫张三",
+      "kind": "stated",
+      "confidence": 1,
+      "source": {
+        "sessionId": "s1",
+        "turn": 1
+      },
+      "date": "2026-09-16",
+      "status": "conflict",
+      "conflictWith": "张三"
+    },
+    {
+      "key": "project",
+      "value": "正在做一个叫 mini-agent 的项目",
+      "kind": "stated",
+      "confidence": 1,
+      "source": {
+        "sessionId": "s1",
+        "turn": 1
+      },
+      "date": "2026-09-16",
+      "status": "conflict",
+      "conflictWith": "mini-agent"
+    },
+    {
+      "key": "todo_weekly_report",
+      "value": "已把「交周报」加入待办清单，约定时间为次日下午 3 点",
+      "kind": "stated",
+      "confidence": 1,
+      "source": {
+        "sessionId": "s1",
+        "turn": 2
+      },
+      "date": "2026-09-16",
+      "status": "active"
+    }
+  ]
+}
+## 5. 会话 <tmp>/sessions/A/s1.json 历史末两条（末条 = review_brief，倒数第二条 = 上一轮 final）
+[
+ {
+  "role": "assistant",
+  "content": "<final>已记入待办清单：\n\n1. [ ] 明天下午 3 点交周报\n\n需要的时候可以说“列出待办”来查看，完成后告诉我，我帮你标记完成。</final>"
+ },
+ {
+  "role": "assistant",
+  "content": "今天到期：下午 3 点前要把周报交上去，昨天已记入待办。",
+  "kind": "review_brief"
+ }
+]
+
+## 6. 同参数再跑一次（③ 幂等：不调模型，attempts=2；exit=0）
+review A 2026-09-16 Asia/Shanghai → ok（attempts=2, coverage=full, entries_written=3）
+今天到期：下午 3 点前要把周报交上去，昨天已记入待办。
+delivered_to: s1
+review · model=deepseek-flash · data=/tmp/ma-r8-live.Iz5D
+### 会话里 review_brief 条数
+1

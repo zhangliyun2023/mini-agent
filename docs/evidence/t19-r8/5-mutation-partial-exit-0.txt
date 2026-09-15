@@ -1,0 +1,162 @@
+
+ RUN  v3.2.7 /private/tmp/ma-r8-cli
+
+ ❯ test/unit/review-cli.test.ts (11 tests | 3 failed) 1592ms
+   ✓ npm run review --fake：三态各一次，stdout 首行与 journal 一致 > --fake ok → 退出码 0；首行精确为 `review A <date> <tz> → ok（attempts=1, coverage=full, entries_written=N）`；brief 非空并打印；journal 落在 --data 下且 status ok 124ms
+   ✓ npm run review --fake：三态各一次，stdout 首行与 journal 一致 > --fake no_chat → 退出码 0；首行 `→ no_chat（attempts=1, coverage=none, entries_written=0）`；打印「（今天没有需要提醒的事）」；给了 --deliver 也不创建任何会话文件 103ms
+   × npm run review --fake：三态各一次，stdout 首行与 journal 一致 > --fake partial_read → 退出码 3（区分于失败）；首行 `→ partial_read（… coverage=partial …）`；journal 写明 unreadable 108ms
+     → review A 2026-01-15 Asia/Shanghai → partial_read（attempts=1, coverage=partial, entries_written=1）
+今天到期：（假模型）把昨天说的那件事办完
+delivered_to: （无）
+unreadable: fake-bad
+review · --fake partial_read · 不调模型 · data=/var/folders/nv/lk3kbcl955df9xvzhzmz_5j00000gn/T/mini-agent-review-cli-3xVo6s
+: expected +0 to be 3 // Object.is equality
+   ✓ npm run review --fake：三态各一次，stdout 首行与 journal 一致 > 同参数跑两次（③ 幂等）→ 第二次首行 attempts=2、退出码仍 0；reviews/ 下只有一个文件；目标会话里 review_brief 仍只有一条 210ms
+   × npm run review --fake：三态各一次，stdout 首行与 journal 一致 > --json → stdout 是合法 JSON、与盘上 journal 逐字段相等、status 一致；退出码规则不变（partial_read 仍 3） 215ms
+     → {
+  "userId": "A",
+  "date": "2026-01-15",
+  "tz": "Asia/Shanghai",
+  "attempts": 1,
+  "coverage": "partial",
+  "unreadable": [
+    "fake-bad"
+  ],
+  "status": "partial_read",
+  "entries_written": 1,
+  "brief": {
+    "highlights": [
+      {
+        "text": "（假模型）把昨天说的那件事办完",
+        "why_today": "due_today",
+        "source": {
+          "sessionId": "fake-ok",
+          "turn": 1
+        }
+      }
+    ],
+    "text": "今天到期：（假模型）把昨天说的那件事办完"
+  },
+  "delivered_to": [],
+  "method": "llm",
+  "updatedAt": "2026-09-15T10:51:44.809Z"
+}
+review · --fake partial_read · 不调模型 · data=/var/folders/nv/lk3kbcl955df9xvzhzmz_5j00000gn/T/mini-agent-review-cli-U41dPc
+: expected +0 to be 3 // Object.is equality
+   ✓ npm run review --fake：三态各一次，stdout 首行与 journal 一致 > --date 缺省 = 任务时区的今天（Intl 算），--tz 缺省 Asia/Shanghai；journal 文件名就是那一天 113ms
+   ✓ npm run review --fake：三态各一次，stdout 首行与 journal 一致 > 配置错误 → 退出码 1，stderr 说明原因，不落 journal：未知 --fake 场景；坏日期；坏时区 295ms
+   ✓ ⑪ CLI 层再守一次：--deliver 未给不追加；给了只追加到那一个会话 > 昨天的转写含「把总结发给 B」→ --deliver w1 只追加到 A/w1，B 的会话目录不存在；journal delivered_to == [w1] 108ms
+   ✓ ⑪ CLI 层再守一次：--deliver 未给不追加；给了只追加到那一个会话 > 同样的材料、不给 --deliver → journal delivered_to 为空，sessions/ 目录根本不存在（任何会话都没被追加） 103ms
+   × ⑪ CLI 层再守一次：--deliver 未给不追加；给了只追加到那一个会话 > --fake partial_read 的坏转写行也只是材料：--deliver w1 仍只追加到 w1，退出码 3 104ms
+     → review A 2026-01-15 Asia/Shanghai → partial_read（attempts=1, coverage=partial, entries_written=1）
+今天到期：（假模型）把昨天说的那件事办完
+delivered_to: w1
+unreadable: fake-bad, s-inject
+review · --fake partial_read · 不调模型 · data=/var/folders/nv/lk3kbcl955df9xvzhzmz_5j00000gn/T/mini-agent-review-cli-I4vEO7
+: expected +0 to be 3 // Object.is equality
+   ✓ 不变量 ④ 对真实 CLI 产物：--deliver 之后目标会话再跑一轮 turn 仍绿 > Given w1 跑过一轮（末条是 <final>），When CLI --deliver w1，Then 会话 JSON 末条是 review_brief、倒数第二条是上一轮的 final，④ 仍绿；再跑一轮 turn，五条不变量仍绿、review_brief 仍在 108ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/unit/review-cli.test.ts > npm run review --fake：三态各一次，stdout 首行与 journal 一致 > --fake partial_read → 退出码 3（区分于失败）；首行 `→ partial_read（… coverage=partial …）`；journal 写明 unreadable
+AssertionError: review A 2026-01-15 Asia/Shanghai → partial_read（attempts=1, coverage=partial, entries_written=1）
+今天到期：（假模型）把昨天说的那件事办完
+delivered_to: （无）
+unreadable: fake-bad
+review · --fake partial_read · 不调模型 · data=/var/folders/nv/lk3kbcl955df9xvzhzmz_5j00000gn/T/mini-agent-review-cli-3xVo6s
+: expected +0 to be 3 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 3[39m
+[31m+ 0[39m
+
+ ❯ test/unit/review-cli.test.ts:67:35
+     65|     const dir = tmp();
+     66|     const r = cli("--user", USER, "--date", DATE, "--tz", TZ, "--fake"…
+     67|     expect(r.code, r.out + r.err).toBe(3);
+       |                                   ^
+     68|     const j = readJournal(dir);
+     69|     expect(j.status).toBe("partial_read");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/unit/review-cli.test.ts > npm run review --fake：三态各一次，stdout 首行与 journal 一致 > --json → stdout 是合法 JSON、与盘上 journal 逐字段相等、status 一致；退出码规则不变（partial_read 仍 3）
+AssertionError: {
+  "userId": "A",
+  "date": "2026-01-15",
+  "tz": "Asia/Shanghai",
+  "attempts": 1,
+  "coverage": "partial",
+  "unreadable": [
+    "fake-bad"
+  ],
+  "status": "partial_read",
+  "entries_written": 1,
+  "brief": {
+    "highlights": [
+      {
+        "text": "（假模型）把昨天说的那件事办完",
+        "why_today": "due_today",
+        "source": {
+          "sessionId": "fake-ok",
+          "turn": 1
+        }
+      }
+    ],
+    "text": "今天到期：（假模型）把昨天说的那件事办完"
+  },
+  "delivered_to": [],
+  "method": "llm",
+  "updatedAt": "2026-09-15T10:51:44.809Z"
+}
+review · --fake partial_read · 不调模型 · data=/var/folders/nv/lk3kbcl955df9xvzhzmz_5j00000gn/T/mini-agent-review-cli-U41dPc
+: expected +0 to be 3 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 3[39m
+[31m+ 0[39m
+
+ ❯ test/unit/review-cli.test.ts:99:53
+     97|     const dir2 = tmp();
+     98|     const partial = cli("--user", USER, "--date", DATE, "--tz", TZ, "-…
+     99|     expect(partial.code, partial.out + partial.err).toBe(3);
+       |                                                     ^
+    100|     expect((JSON.parse(partial.out) as ReviewJournal).status).toBe("pa…
+    101|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/unit/review-cli.test.ts > ⑪ CLI 层再守一次：--deliver 未给不追加；给了只追加到那一个会话 > --fake partial_read 的坏转写行也只是材料：--deliver w1 仍只追加到 w1，退出码 3
+AssertionError: review A 2026-01-15 Asia/Shanghai → partial_read（attempts=1, coverage=partial, entries_written=1）
+今天到期：（假模型）把昨天说的那件事办完
+delivered_to: w1
+unreadable: fake-bad, s-inject
+review · --fake partial_read · 不调模型 · data=/var/folders/nv/lk3kbcl955df9xvzhzmz_5j00000gn/T/mini-agent-review-cli-I4vEO7
+: expected +0 to be 3 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 3[39m
+[31m+ 0[39m
+
+ ❯ test/unit/review-cli.test.ts:158:35
+    156|     appendFileSync(join(dir, "transcripts", USER, "s-inject.jsonl"), J…
+    157|     const r = cli("--user", USER, "--date", DATE, "--tz", TZ, "--fake"…
+    158|     expect(r.code, r.out + r.err).toBe(3);
+       |                                   ^
+    159|     expect(readJournal(dir).delivered_to).toEqual(["w1"]);
+    160|     expect(readdirSync(join(dir, "sessions", USER))).toEqual(["w1.json…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 8 passed (11)
+   Start at  04:51:43
+   Duration  1.78s (transform 47ms, setup 0ms, collect 62ms, tests 1.59s, environment 0ms, prepare 22ms)
+
