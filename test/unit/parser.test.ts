@@ -73,4 +73,32 @@ describe("真实模型跑出来的偏差（2026-09-14 qwen3-max 实测）", () =
     const out = parseAssistantOutput(`<tool_code><tool_call>{"name":"calculator","arguments":{"expression":"2"}}</tool_call></tool_code>`);
     expect(out.toolCalls.length).toBe(1);
   });
+
+  // 2026-09-15 live 暴露（#4）：原生模式下模型没走 tool_calls，直接吐 <function=NAME><parameter=K>V</parameter></function>
+  it("模型输出 <function=NAME><parameter=K>V</parameter></function> 变体时识别为工具调用，并记一条 warning", () => {
+    const out = parseAssistantOutput(`<think>算</think>\n<function=calculator>\n<parameter=expression>99*99</parameter>\n</function>`);
+    expect(out.toolCalls).toEqual([{ name: "calculator", arguments: { expression: "99*99" } }]);
+    expect(out.final).toBeUndefined();
+    expect(out.errors).toEqual([]);
+    expect(out.warnings[0]).toMatch(/function=/);
+  });
+
+  it("<function=…> 变体带多个参数时全部提取；连续两个 function 块是两次调用", () => {
+    const out = parseAssistantOutput(
+      `<function=todo><parameter=action>done</parameter><parameter=index>1</parameter></function><function=search><parameter=query>上海</parameter></function>`,
+    );
+    // 参数值是文本，数字按原生 function calling 的习惯还原成 number，否则过不了 Schema 校验
+    expect(out.toolCalls).toEqual([
+      { name: "todo", arguments: { action: "done", index: 1 } },
+      { name: "search", arguments: { query: "上海" } },
+    ]);
+  });
+
+  it("<function=…> 块不完整（缺 </function>）时不当最终答案，记解析错误回喂", () => {
+    const out = parseAssistantOutput(`<function=calculator>\n<parameter=expression>99*99</parameter>`);
+    expect(out.final).toBeUndefined();
+    expect(out.toolCalls).toEqual([]);
+    expect(out.errors[0]).toMatch(/tool_call/);
+  });
 });
+
