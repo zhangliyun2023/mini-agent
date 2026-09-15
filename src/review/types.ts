@@ -7,3 +7,12 @@ export type Brief = { highlights: Highlight[]; text: string } | null;
 export type Consolidation = { entries: MemoryEntry[]; highlights: Highlight[]; method: "llm" | "rule"; warnings: string[] };
 export type Coverage = "full" | "partial" | "none";
 export type ReviewJournal = { userId: string; date: string; tz: string; status: "ok" | "no_chat" | "partial_read"; attempts: number; coverage: Coverage; entries_written: number; brief: Brief; delivered_to: string[]; method?: "llm" | "rule"; updatedAt: string };
+
+// R2：复盘取数只依赖这个最小读接口；实现在 ./transcript.ts（R1）
+export type { TranscriptLine } from "./transcript.js";
+import type { TranscriptLine as _TL } from "./transcript.js";
+export interface TranscriptReader {
+  list(userId: string): string[];
+  /** null = 转写文件缺失或读不出（计入 partial_read） */
+  read(userId: string, sessionId: string): _TL[] | null;
+}

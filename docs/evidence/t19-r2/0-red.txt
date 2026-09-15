@@ -1,0 +1,40 @@
+
+ RUN  v3.2.7 /private/tmp/ma-r2-collect
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/unit/review-collect.test.ts [ test/unit/review-collect.test.ts ]
+Error: Cannot find module '../../src/review/collect.js' imported from '/private/tmp/ma-r2-collect/test/unit/review-collect.test.ts'
+ ❯ test/unit/review-collect.test.ts:2:1
+      1| import { describe, it, expect } from "vitest";
+      2| import { collectYesterday } from "../../src/review/collect.js";
+       | ^
+      3| import { yesterdayWindow } from "../../src/review/window.js";
+      4| import type { TranscriptLine, TranscriptReader } from "../../src/revie…
+
+Caused by: Error: Failed to load url ../../src/review/collect.js (resolved id: ../../src/review/collect.js) in /private/tmp/ma-r2-collect/test/unit/review-collect.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../../Users/zhangly04/dev/mini-agent/node_modules/vite/dist/node/chunks/config.js:22739:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/unit/review-window.test.ts [ test/unit/review-window.test.ts ]
+Error: Cannot find module '../../src/review/window.js' imported from '/private/tmp/ma-r2-collect/test/unit/review-window.test.ts'
+ ❯ test/unit/review-window.test.ts:2:1
+      1| import { describe, it, expect } from "vitest";
+      2| import { yesterdayWindow } from "../../src/review/window.js";
+       | ^
+      3| 
+      4| // #19 ②：「昨天」= 任务时区的昨日 00:00 到今日 00:00，按计划日期算，不是「过去 24 小时」。
+
+Caused by: Error: Failed to load url ../../src/review/window.js (resolved id: ../../src/review/window.js) in /private/tmp/ma-r2-collect/test/unit/review-window.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../../Users/zhangly04/dev/mini-agent/node_modules/vite/dist/node/chunks/config.js:22739:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  no tests
+   Start at  04:25:51
+   Duration  192ms (transform 26ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 88ms)
+

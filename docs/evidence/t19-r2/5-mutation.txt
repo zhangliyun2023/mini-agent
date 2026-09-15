@@ -1,0 +1,37 @@
+# 变异 A：partial 冒充 none（unreadable 非空但 sessions 为空时返回 none）
+33:  const coverage: Coverage = sessions.length === 0 ? "none" : unreadable.length > 0 ? "partial" : "full";
+   ✓ collectYesterday(reader, userId, window) > 只收 ts 落在 [start, end) 内的行；区间外的行不带出来；有行且无读失败 → full 1ms
+   ✓ collectYesterday(reader, userId, window) > 只选出有行落在区间内的会话：整段都在区间外的会话不出现在 sessions 里 0ms
+   ✓ collectYesterday(reader, userId, window) > 边界：今天凌晨 00:30 的行归今天不归昨天；昨天 00:30 与 23:30 归昨天；end 本身不含 0ms
+   ✓ collectYesterday(reader, userId, window) > 某会话 read 返回 null（转写缺失 / 读不出）→ 计入 unreadable，coverage 至少 partial，其余会话照常取 0ms
+   × collectYesterday(reader, userId, window) > 有读不出的会话且一条区间内的行都没有 → 仍是 partial，不得冒充 none（partial_read ≠ no_chat） 3ms
+   ✓ collectYesterday(reader, userId, window) > 行的 ts 缺失或解析不出 → 该会话读不出时间，计入 unreadable → partial 0ms
+   ✓ collectYesterday(reader, userId, window) > 没有任何会话、或所有会话都没有区间内的行，且无读失败 → none，sessions 空 0ms
+   ✓ collectYesterday(reader, userId, window) > 只取该用户的会话：别的用户昨天聊过不算 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected 'none' to be 'partial' // Object.is equality
+Expected: "partial"
+Received: "none"
+      Tests  1 failed | 7 passed (8)
+exit=?
+
+# 变异 B：区间右端改成闭区间（< end → <= end）
+30:    const picked = lines.filter((_, i) => stamps[i] >= start && stamps[i] <= end);
+   ✓ collectYesterday(reader, userId, window) > 只收 ts 落在 [start, end) 内的行；区间外的行不带出来；有行且无读失败 → full 1ms
+   ✓ collectYesterday(reader, userId, window) > 只选出有行落在区间内的会话：整段都在区间外的会话不出现在 sessions 里 0ms
+   × collectYesterday(reader, userId, window) > 边界：今天凌晨 00:30 的行归今天不归昨天；昨天 00:30 与 23:30 归昨天；end 本身不含 3ms
+   ✓ collectYesterday(reader, userId, window) > 某会话 read 返回 null（转写缺失 / 读不出）→ 计入 unreadable，coverage 至少 partial，其余会话照常取 0ms
+   ✓ collectYesterday(reader, userId, window) > 有读不出的会话且一条区间内的行都没有 → 仍是 partial，不得冒充 none（partial_read ≠ no_chat） 0ms
+   ✓ collectYesterday(reader, userId, window) > 行的 ts 缺失或解析不出 → 该会话读不出时间，计入 unreadable → partial 0ms
+   ✓ collectYesterday(reader, userId, window) > 没有任何会话、或所有会话都没有区间内的行，且无读失败 → none，sessions 空 0ms
+   ✓ collectYesterday(reader, userId, window) > 只取该用户的会话：别的用户昨天聊过不算 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [ '昨天凌晨', '昨天深夜', '恰好 end' ] to deeply equal [ '昨天凌晨', '昨天深夜' ]
+- Expected
++ Received
++   "恰好 end",
+      Tests  1 failed | 7 passed (8)
+
+# 还原后
+      Tests  8 passed (8)
+restored OK
