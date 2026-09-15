@@ -7,7 +7,7 @@ import { classifyLlmError, isRetryable, type LlmErrorClass } from "../../src/llm
 const err = (message: string, extra: Record<string, unknown> = {}) => Object.assign(new Error(message), extra);
 
 describe("classifyLlmError：按错误类型分类（#11）", () => {
-  it.each([
+  it.each([ // ×19
     [err("Incorrect API key", { status: 401 }), "auth"],
     [err("forbidden", { status: 403 }), "auth"],
     [err("bad request", { status: 400 }), "bad_request"],
@@ -28,7 +28,7 @@ describe("classifyLlmError：按错误类型分类（#11）", () => {
     [new RateLimitError(429, undefined, "Rate limit reached", new Headers()), "rate_limited"],
     [new APIConnectionTimeoutError(), "timeout"],
     [new APIConnectionError({}), "network"],
-  ])("%s → %s", (e, cls) => { // ×19
+  ])("%s → %s", (e, cls) => {
     expect(classifyLlmError(e)).toBe(cls);
   });
 

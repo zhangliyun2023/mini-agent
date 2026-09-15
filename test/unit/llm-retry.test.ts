@@ -63,11 +63,11 @@ describe("模型调用重试按错误类型分类（#11）", () => {
     expect(trace.sequence()).toEqual(["t-llm-failed"]);
   });
 
-  it.each([
+  it.each([ // ×3
     ["超时 ETIMEDOUT", fail("connect ETIMEDOUT", { code: "ETIMEDOUT" }), "timeout"],
     ["网络 ECONNRESET", fail("read ECONNRESET", { code: "ECONNRESET" }), "network"],
     ["服务端 503", fail("Service Unavailable", { status: 503 }), "server"],
-  ])("%s 归入可重试类：失败两次后第三次成功，本轮正常 final", async (_name, e, cls) => { // ×3
+  ])("%s 归入可重试类：失败两次后第三次成功，本轮正常 final", async (_name, e, cls) => {
     const llm = scripted([e, e, "<final>第三次才通</final>"]);
     const trace = new MemoryTraceSink();
     const { waits, sleep } = fakeSleep();
