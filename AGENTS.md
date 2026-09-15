@@ -71,6 +71,7 @@ src/tools/                     注册表（校验 → 执行 → 精简 → reda
 src/session/                   会话存储（内存 / 文件）+ context 组装与压缩
 src/memory/                    用户级长期记忆（内存 / 文件）
 src/review/                    复盘（#19）：types.ts 共享类型；transcript.ts 逐轮转写（Raw 层，内存 / 文件 data/transcripts，轮末追加、不压缩）
+src/review/                    复盘（#19）：types.ts 共享类型；present.ts 呈现门槛（why_today + source 必备、不复述原话、空则 brief null）
 src/llm/                       LLMClient 接口 + OpenAI-compatible 实现 + FakeLLM
 scripts/contracts.ts           contracts:gen / contracts:check 的实现
 scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
@@ -98,6 +99,7 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 | `test/unit/parser.test.ts` | 纯函数 | 协议解析与真实模型偏差 |
 | `test/unit/docs.test.ts` | 纯函数 | 守文档：七章节、地图文件与命令存在、机器清单 == 表、gate.sh 四步顺序、TEST_REPORT §0 条数表 == 源码静态计数 |
 | `test/unit/tools.test.ts` | 纯函数 | 注册表全部走 `registry.invoke`：未注册 / 缺必填 / 类型错 / 未知参数 / 枚举外 / 截断 / handler 抛错 |
+| `test/unit/review-present.test.ts` | 纯函数 | #19 ⑤ 呈现门槛：due_today → 一条带「今天到期：」；三种前缀与顺序；闲聊 → brief null；缺 why_today / 表外值 / 缺 source → dropped + reason；逐字重合或 ≥ 20 字子串 → 过滤 + warning，其余保留 |
 | `test/live/live.test.ts` | 真实模型 smoke | 5 场景，无 key 自动跳过；afterAll 对当次产出的 trace 跑同一份不变量检查 |
 
 ## 禁止事项

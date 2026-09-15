@@ -1,0 +1,93 @@
+
+ RUN  v3.2.7 /private/tmp/ma-r5-present
+
+ ❯ test/unit/review-present.test.ts (8 tests | 3 failed) 5ms
+   ✓ present：呈现门槛（#19 ⑤） > 有 due_today 的亮点 → brief 一条，文本带「今天到期：」前缀，不加寒暄 1ms
+   ✓ present：呈现门槛（#19 ⑤） > 三种 why_today 各一条 → 每条一行、前缀各异、保持输入顺序 0ms
+   ✓ present：呈现门槛（#19 ⑤） > 只有闲聊：highlights 为空 → brief 为 null，不丢不警 0ms
+   ✓ present：呈现门槛（#19 ⑤） > 亮点都没有合法 why_today（缺失 / 表外值）→ 全部丢弃并记 reason，brief 为 null 0ms
+   ✓ present：呈现门槛（#19 ⑤） > 缺 source（没有 / 不是 {sessionId, turn}）→ 丢弃并记 reason，其余保留 0ms
+   × present：呈现门槛（#19 ⑤） > 不复述原话：亮点与昨天某行逐字重合（去空白后相等）→ 过滤并 warning，其余保留 3ms
+     → expected '今天到期：记住了：周一交发票 给财务 \n今天到期：把发票交给财务' to be '今天到期：把发票交给财务' // Object.is equality
+   × present：呈现门槛（#19 ⑤） > 不复述原话：亮点是某行 ≥ 20 字的连续子串 → 过滤；< 20 字的子串放行 0ms
+     → expected '今天到期：周一要把发票交给财务，不然报销要拖到下个月\n昨天没收尾：PR …' to be '昨天没收尾：PR #19 今晚合不完' // Object.is equality
+   × present：呈现门槛（#19 ⑤） > 所有亮点都被门槛拦下 → brief 为 null，dropped 与 warnings 仍如实记录；上游 warnings 原样带出 1ms
+     → expected { highlights: [ { …(3) } ], …(1) } to be null
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/unit/review-present.test.ts > present：呈现门槛（#19 ⑤） > 不复述原话：亮点与昨天某行逐字重合（去空白后相等）→ 过滤并 warning，其余保留
+AssertionError: expected '今天到期：记住了：周一交发票 给财务 \n今天到期：把发票交给财务' to be '今天到期：把发票交给财务' // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[31m+ 今天到期：记住了：周一交发票 给财务 [39m
+[2m  今天到期：把发票交给财务[22m
+
+ ❯ test/unit/review-present.test.ts:66:27
+     64|     const copied: Highlight = { text: "记住了：周一交发票 给财务 ", why_today: "du…
+     65|     const r = present(cons([copied, { text: "把发票交给财务", why_today: "due…
+     66|     expect(r.brief?.text).toBe("今天到期：把发票交给财务");
+       |                           ^
+     67|     expect(r.dropped).toEqual([{ highlight: copied, reason: "verbatim"…
+     68|     expect(r.warnings).toEqual(["亮点「记住了：周一交发票 给财务 」与昨天 w1 第 2 轮 assist…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/unit/review-present.test.ts > present：呈现门槛（#19 ⑤） > 不复述原话：亮点是某行 ≥ 20 字的连续子串 → 过滤；< 20 字的子串放行
+AssertionError: expected '今天到期：周一要把发票交给财务，不然报销要拖到下个月\n昨天没收尾：PR …' to be '昨天没收尾：PR #19 今晚合不完' // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[31m+ 今天到期：周一要把发票交给财务，不然报销要拖到下个月[39m
+[2m  昨天没收尾：PR #19 今晚合不完[22m
+
+ ❯ test/unit/review-present.test.ts:75:27
+     73|     const short: Highlight = { text: "PR #19 今晚合不完", why_today: "unfin…
+     74|     const r = present(cons([long, short]), yesterday);
+     75|     expect(r.brief?.text).toBe("昨天没收尾：PR #19 今晚合不完");
+       |                           ^
+     76|     expect(r.dropped).toEqual([{ highlight: long, reason: "verbatim" }…
+     77|     expect(r.warnings).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/unit/review-present.test.ts > present：呈现门槛（#19 ⑤） > 所有亮点都被门槛拦下 → brief 为 null，dropped 与 warnings 仍如实记录；上游 warnings 原样带出
+AssertionError: expected { highlights: [ { …(3) } ], …(1) } to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+{
+  "highlights": [
+    {
+      "source": {
+        "sessionId": "w1",
+        "turn": 3,
+      },
+      "text": "好的，明天继续",
+      "why_today": "unfinished",
+    },
+  ],
+  "text": "昨天没收尾：好的，明天继续",
+}
+
+ ❯ test/unit/review-present.test.ts:84:21
+     82|     const copied: Highlight = { text: "好的，明天继续", why_today: "unfinishe…
+     83|     const r = present(cons([copied], ["upstream: rule fallback"]), yes…
+     84|     expect(r.brief).toBeNull();
+       |                     ^
+     85|     expect(r.dropped).toEqual([{ highlight: copied, reason: "verbatim"…
+     86|     expect(r.warnings[0]).toBe("upstream: rule fallback");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 5 passed (8)
+   Start at  04:26:40
+   Duration  169ms (transform 18ms, setup 0ms, collect 15ms, tests 5ms, environment 0ms, prepare 30ms)
+
