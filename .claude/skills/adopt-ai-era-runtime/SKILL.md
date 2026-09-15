@@ -2,6 +2,7 @@
 name: adopt-ai-era-runtime
 description: Bring a NO-UI repository (CLI tool, agent runtime, library, daemon) onto the AI-era system — same standard, same vocabulary skills, but with the browser/HTTP assumptions replaced by runtime equivalents (turn = trace_id, LLM call = request_id, RunResult = mirror component, JSONL = transition store). Use instead of /adopt-ai-era when the repo has no DOM, no pages, no HTTP server of its own.
 disable-model-invocation: true
+version: 1.1.0
 ---
 
 # 把一个无 UI 仓库带上「状态表 + 打点 + 从表生成的测试」体系
@@ -46,15 +47,27 @@ prompt 用 [`references/audit-prompt.md`](references/audit-prompt.md)，**追加
 | S2 闸 + 打点 | 运行单元的主循环改为「先 `interpret` 后副作用」；trace 改为一次转移一行（[`references/trace-shape.md`](references/trace-shape.md)）；顺手删掉指向不存在文件的脚本 | 既有单测不改断言全绿；trace 序列测试改为对答案卷 |
 | S2.5 承重面补洞 | 审计指出的「绕过真实路径」的测试改走真实入口（如工具测试走 `registry.invoke` 而不是直接调 handler）；无测试的分支补齐 | 每条一红一绿 |
 | S3 生成器 + 答案卷 | `/model-e2e`：`reachable()` 生成路径集合 == 手写 `covered_by` 集合；`/answer-key`：`contracts/journeys.json` + [`references/machine-check.example.ts`](references/machine-check.example.ts) 吃 JSONL rows | 第一次跑就红出手写套件的遗漏；判分 passed / failed / not_observed 三态 |
+| S3.5 模型层随机探索 | `/model-e2e`：随机游走 + 通用不变量 + ddmin 缩减 | 零 guard 洞；发现的洞先补表 |
 | S4 P0 不变量 + 三处对齐 | 每条不变量一条 Given/When/Then；三处对齐用**文件实现**（不是内存实现）真落盘验；对最承重的一两条做一次变异（把 unknown 谎报成 modeled → 必须红） | 各一红一绿；变异红写进报告 |
 | S5 影子表 | 其余有状态的东西只建表 + 生成契约，不接代码；没实现的行为标 `kind:'unknown'` 诚实可见 | 契约生成；reachable 豁免 unknown 状态 |
 | S6 写死 | `/agents-md` 收窄版 + [`references/gate.example.sh`](references/gate.example.sh) 一键门禁落 `docs/evidence/` + `docs/TEST_REPORT.md`（对标 §13 八条）+ `docs/NEXT_STEPS.md` | 守文档测试绿；报告八条逐条有证据；skipped ≠ 通过 |
 
 时间边界：切片线在约定时点没绿 → 砍 S3/S5/S6 的生成器与文档，只留 S0–S2（表 + 闸），并在报告里写明。
 
+## 3.5 建表 checklist（runtime 版，每张表过一遍，不适用写「不适用」）
+
+- **busy 时又来一次**：轮进行中收到新的用户输入 / 上一轮的异步工具在本轮到达 → 表里要有行（noop / rejected / 排队），至少标 `kind:'unknown'` 状态诚实可见。
+- **外部调用失败后的重试**：超时 / 限流 / 5xx 各是一个 facts 等价类；重试次数用尽是独立事件。
+- **解析失败连发**：连续 PARSED_ERROR 到步数用尽要有兜底行，不能靠 unknown。
+- **事件早到 / 乱序**：工具结果在轮次已结束后到达；取消后的结果。
+- **终态是吸收态**：终态 × 任何事件 noop 或显式列出。
+- **步数 / 预算用尽**：无 guard 兜底行，不是 guard 里的 else。
+
+随后跑一次**模型层随机探索**（`/model-e2e`「模型层随机探索」，只用 interpret 和表，几秒）：已建模的格不得返回 unknown；第一次红出来的 guard 洞补表、真实运行产生不了的组合登记为状态约束。
+
 ## 4. 完成判据
 
-`AGENTS.md` 是唯一入口且有守文档的测试；`docs/TEST_REPORT.md` 有 §13 八条表，每条 已验证（进程内 / 真实外部依赖少量 smoke）/ 部分 / 不满足 / 不适用 + 证据；`scripts/gate.sh` 落证据目录；答案卷 + 终态字段绑定是日常「对答案」的方式；没做的诚实写在 `docs/NEXT_STEPS.md`。
+`AGENTS.md` 是唯一入口且有守文档的测试；`docs/TEST_REPORT.md` 有 §13 八条表，每条 已验证（进程内 / 真实外部依赖少量 smoke）/ 部分 / 不满足 / 不适用 + 证据；没条件跑的写 `not_run`，跑了主动跳过的写 `skipped`，两者都不是通过；`scripts/gate.sh` 落证据目录；答案卷 + 终态字段绑定是日常「对答案」的方式；没做的诚实写在 `docs/NEXT_STEPS.md`。
 
 ## 5. 不要做
 
