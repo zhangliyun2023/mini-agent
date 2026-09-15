@@ -1,0 +1,9 @@
+ ✓ test/unit/review-present.test.ts (8 tests) 2ms
+ ✓ test/unit/unknown-transition-default.test.ts (1 test) 3ms
+
+ Test Files  26 passed (26)
+      Tests  239 passed (239)
+   Start at  05:02:03
+   Duration  922ms (transform 546ms, setup 0ms, collect 1.65s, tests 817ms, environment 2ms, prepare 1.36s)
+
+exit 0 (expected 0)

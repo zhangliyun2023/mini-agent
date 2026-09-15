@@ -1,0 +1,4 @@
+live/wx/2	passed	evals/live-trace/2026-09-15-07-59/wx.jsonl
+live/native/1	passed	evals/live-trace/2026-09-15-07-59-native/native.jsonl
+files=42 turns=54 transitions=243 passed=54 failed=0 unknown=0
+exit 0 (expected 0)

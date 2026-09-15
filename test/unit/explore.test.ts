@@ -4,6 +4,7 @@ import { defineMachine } from "../../src/machine/interpreter.js";
 import { turnMachine } from "../../contracts/turn.machine.js";
 import { sessionMachine } from "../../contracts/session.machine.js";
 import { sessionRuntimeMachine } from "../../contracts/session-runtime.machine.js";
+import { reviewMachine } from "../../contracts/review.machine.js";
 
 // B2 / S3.5 模型层随机探索：只用表 + interpret，几秒。带种子随机游走，每步随机事件 + 随机 guard 取值；
 // 通用不变量：已建模的格不得 unknown（guard 洞）、blocked/noop 停留、allowed 落在 modeled 状态、终态吸收；红了 ddmin 缩到最短复现。
@@ -41,10 +42,11 @@ describe("随机探索器", () => {
     expect(min).toEqual([3, 7]);
   });
 
-  it.each([ // ×3
+  it.each([ // ×4
     ["turn", turnMachine],
     ["session", sessionMachine],
     ["session-runtime", sessionRuntimeMachine],
+    ["review", reviewMachine],
   ] as const)("三张表随机探索零违反：%s（guard 洞 / 停留 / 落点 / 终态吸收）", (_name, m) => {
     const r = explore(m as any, { seed: 20260914, walks: 300, maxSteps: 40 });
     expect(r.violations).toEqual([]);
