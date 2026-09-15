@@ -6,10 +6,12 @@
   "description": "从零实现的最小可用 Agent Runtime：loop / 工具注册 / 输出解析 / session / context 压缩 / trace",
   "scripts": {
     "chat": "tsx src/cli.ts",
-    "serve": "tsx src/server.ts",
     "test": "vitest run",
     "test:live": "LIVE=1 vitest run test/live",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "contracts:gen": "tsx scripts/contracts.ts write",
+    "contracts:check": "tsx scripts/contracts.ts check",
+    "check": "npm run typecheck && npm run contracts:check && npm test"
   },
   "dependencies": {
     "openai": "^5.12.0"

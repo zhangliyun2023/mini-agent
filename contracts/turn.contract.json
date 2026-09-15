@@ -1,0 +1,272 @@
+{
+  "feature": "turn",
+  "anchor": "docs/SPEC.md#实现决策 → 循环",
+  "initial": "deciding",
+  "states": [
+    "deciding",
+    "executing_tools",
+    "done",
+    "max_steps",
+    "error"
+  ],
+  "terminal": [
+    "done",
+    "max_steps",
+    "error"
+  ],
+  "events": [
+    "LLM_OK",
+    "LLM_FAILED",
+    "PARSED_TOOL_CALLS",
+    "PARSED_FINAL",
+    "PARSED_ERROR",
+    "TOOLS_DONE"
+  ],
+  "guards": [
+    "hasStepsLeft"
+  ],
+  "rows": [
+    {
+      "id": "deciding --LLM_OK--> deciding",
+      "from": "deciding",
+      "event": "LLM_OK",
+      "guard": null,
+      "to": "deciding",
+      "kind": "allowed",
+      "reason": "模型返回了文本，留在 deciding 等解析",
+      "priority": "P0",
+      "covered_by": [
+        "test/unit/agent-loop.test.ts::不需要工具时直接回复，只调一次 LLM"
+      ],
+      "effects": [
+        "compact",
+        "llm"
+      ]
+    },
+    {
+      "id": "deciding --LLM_FAILED--> error",
+      "from": "deciding",
+      "event": "LLM_FAILED",
+      "guard": null,
+      "to": "error",
+      "kind": "allowed",
+      "reason": "重试用尽仍失败，以可读错误结束本轮",
+      "priority": "P0",
+      "covered_by": [
+        "test/unit/agent-loop.test.ts::LLM 调用抛异常时返回可读错误，不让进程崩"
+      ],
+      "effects": [
+        "compact",
+        "llm",
+        "answer"
+      ]
+    },
+    {
+      "id": "deciding --PARSED_FINAL--> done",
+      "from": "deciding",
+      "event": "PARSED_FINAL",
+      "guard": null,
+      "to": "done",
+      "kind": "allowed",
+      "reason": "无工具调用且有 final：本轮结束",
+      "priority": "P0",
+      "covered_by": [
+        "test/unit/agent-loop.test.ts::不需要工具时直接回复，只调一次 LLM"
+      ],
+      "effects": [
+        "parse",
+        "answer"
+      ]
+    },
+    {
+      "id": "deciding --PARSED_TOOL_CALLS--> executing_tools",
+      "from": "deciding",
+      "event": "PARSED_TOOL_CALLS",
+      "guard": null,
+      "to": "executing_tools",
+      "kind": "allowed",
+      "reason": "解析出工具调用，进入执行；工具只在 executing_tools 里跑",
+      "priority": "P0",
+      "covered_by": [
+        "test/unit/agent-loop.test.ts::调用工具：结果以 tool 消息回填后模型再给最终答案"
+      ],
+      "effects": [
+        "parse"
+      ]
+    },
+    {
+      "id": "deciding --PARSED_ERROR[hasStepsLeft]--> deciding",
+      "from": "deciding",
+      "event": "PARSED_ERROR",
+      "guard": "hasStepsLeft",
+      "to": "deciding",
+      "kind": "allowed",
+      "reason": "解析失败且还有步数：把错误当 tool 消息回喂，让模型重来",
+      "priority": "P0",
+      "covered_by": [
+        "test/unit/agent-loop.test.ts::模型输出坏 JSON 时，把解析错误当 tool 消息回喂，让模型自己纠正"
+      ],
+      "effects": [
+        "parse"
+      ]
+    },
+    {
+      "id": "deciding --PARSED_ERROR--> max_steps",
+      "from": "deciding",
+      "event": "PARSED_ERROR",
+      "guard": null,
+      "to": "max_steps",
+      "kind": "allowed",
+      "reason": "解析失败且步数用尽：交还已有结果",
+      "priority": "P0",
+      "covered_by": [
+        "test/unit/agent-loop.test.ts::模型连续输出无法解析的内容直到步数上限，以 max_steps 结束"
+      ],
+      "effects": [
+        "parse",
+        "answer"
+      ]
+    },
+    {
+      "id": "executing_tools --TOOLS_DONE[hasStepsLeft]--> deciding",
+      "from": "executing_tools",
+      "event": "TOOLS_DONE",
+      "guard": "hasStepsLeft",
+      "to": "deciding",
+      "kind": "allowed",
+      "reason": "工具结果已回填，还有步数：回到模型决策",
+      "priority": "P0",
+      "covered_by": [
+        "test/unit/agent-loop.test.ts::调用工具：结果以 tool 消息回填后模型再给最终答案"
+      ],
+      "effects": [
+        "tool"
+      ]
+    },
+    {
+      "id": "executing_tools --TOOLS_DONE--> max_steps",
+      "from": "executing_tools",
+      "event": "TOOLS_DONE",
+      "guard": null,
+      "to": "max_steps",
+      "kind": "allowed",
+      "reason": "工具结果已回填但步数用尽：以「已达上限 + 最近三条工具结果」结束",
+      "priority": "P0",
+      "covered_by": [
+        "test/unit/agent-loop.test.ts::模型一直调工具时，到达单轮最大步数就停下并把已有信息交还用户"
+      ],
+      "effects": [
+        "tool",
+        "answer"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "no_tool_after_parse_error",
+      "text": "无工具执行于解析失败之后：tool 副作用只出现在 executing_tools 发出的 TOOLS_DONE 转移上，且其前一条必是 allowed 的 PARSED_TOOL_CALLS",
+      "priority": "P0",
+      "status": "enforced",
+      "evidence": [
+        "src/machine/invariants.ts::noToolAfterParseError",
+        "test/unit/invariants.test.ts::① 无工具执行于解析失败之后"
+      ]
+    },
+    {
+      "id": "exactly_one_final_answer",
+      "text": "一轮恰一个最终答案：trace 里恰一条终态转移且是末条、恰一个 answer 副作用；历史里本轮恰追加一条 <final>",
+      "priority": "P0",
+      "status": "enforced",
+      "evidence": [
+        "src/machine/invariants.ts::exactlyOneFinalAnswer",
+        "test/unit/invariants.test.ts::② 一轮恰一个最终答案"
+      ]
+    },
+    {
+      "id": "terminal_states_distinct",
+      "text": "三终态互斥可区分：done/max_steps/error 与 stoppedBy final/max_steps/error 一一对应，一轮只落一个终态",
+      "priority": "P0",
+      "status": "enforced",
+      "evidence": [
+        "src/machine/invariants.ts::terminalStatesDistinct",
+        "test/unit/invariants.test.ts::③ 三终态互斥可区分"
+      ]
+    },
+    {
+      "id": "answer_alignment",
+      "text": "答案 == 盘上历史末条 == trace 末次决策：RunResult.answer、session.history 末条 <final>、trace 末条 answer 副作用三处一致",
+      "priority": "P0",
+      "status": "enforced",
+      "evidence": [
+        "src/machine/invariants.ts::answerAligned",
+        "test/unit/invariants.test.ts::④ 答案 == 盘上历史末条 == trace 末次决策"
+      ]
+    },
+    {
+      "id": "unknown_never_silent",
+      "text": "未列 (状态, 事件) 在运行时被拦下：不执行副作用、记 trace、本轮 error 终态（测试模式直接失败）",
+      "priority": "P0",
+      "status": "enforced",
+      "evidence": [
+        "src/runtime/agent.ts::unknownTransition",
+        "test/unit/agent-loop.test.ts::表里没列的转移在运行时被拦下"
+      ]
+    },
+    {
+      "id": "api_key_never_in_trace",
+      "text": "API key 不进 trace：trace 只写模型名、耗时、token、预览，不写配置",
+      "priority": "P1",
+      "status": "planned",
+      "evidence": []
+    },
+    {
+      "id": "compaction_cut_on_user",
+      "text": "压缩切点对齐到 user 消息，不把一轮 tool_call/tool 从中间切断",
+      "priority": "P1",
+      "status": "planned",
+      "evidence": []
+    }
+  ],
+  "cells": {
+    "total": 30,
+    "listed": 6,
+    "declared_unknown": [],
+    "unlisted": [
+      "deciding + TOOLS_DONE",
+      "executing_tools + LLM_OK",
+      "executing_tools + LLM_FAILED",
+      "executing_tools + PARSED_TOOL_CALLS",
+      "executing_tools + PARSED_FINAL",
+      "executing_tools + PARSED_ERROR",
+      "done + LLM_OK",
+      "done + LLM_FAILED",
+      "done + PARSED_TOOL_CALLS",
+      "done + PARSED_FINAL",
+      "done + PARSED_ERROR",
+      "done + TOOLS_DONE",
+      "max_steps + LLM_OK",
+      "max_steps + LLM_FAILED",
+      "max_steps + PARSED_TOOL_CALLS",
+      "max_steps + PARSED_FINAL",
+      "max_steps + PARSED_ERROR",
+      "max_steps + TOOLS_DONE",
+      "error + LLM_OK",
+      "error + LLM_FAILED",
+      "error + PARSED_TOOL_CALLS",
+      "error + PARSED_FINAL",
+      "error + PARSED_ERROR",
+      "error + TOOLS_DONE"
+    ]
+  },
+  "reachable": {
+    "states": [
+      "deciding",
+      "executing_tools",
+      "done",
+      "max_steps",
+      "error"
+    ],
+    "unreachable_states": [],
+    "unreachable_rows": []
+  }
+}

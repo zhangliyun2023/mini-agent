@@ -1,0 +1,151 @@
+{
+  "feature": "session",
+  "anchor": "docs/SPEC.md#实现决策 → 会话存储 / 压缩",
+  "initial": "new",
+  "states": [
+    "new",
+    "active",
+    "compacting"
+  ],
+  "terminal": [],
+  "events": [
+    "FIRST_INPUT",
+    "INPUT",
+    "COMPACT_NEEDED",
+    "COMPACT_DONE",
+    "COMPACT_FAILED"
+  ],
+  "guards": [],
+  "rows": [
+    {
+      "id": "new --FIRST_INPUT--> active",
+      "from": "new",
+      "event": "FIRST_INPUT",
+      "guard": null,
+      "to": "active",
+      "kind": "allowed",
+      "reason": "首次输入：建会话文件、turns=1",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "new --COMPACT_NEEDED--> new",
+      "from": "new",
+      "event": "COMPACT_NEEDED",
+      "guard": null,
+      "to": "new",
+      "kind": "rejected",
+      "reason": "空会话无历史可压",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "active --INPUT--> active",
+      "from": "active",
+      "event": "INPUT",
+      "guard": null,
+      "to": "active",
+      "kind": "allowed",
+      "reason": "新一轮 turn（见 turn 表）",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "active --COMPACT_NEEDED--> compacting",
+      "from": "active",
+      "event": "COMPACT_NEEDED",
+      "guard": null,
+      "to": "compacting",
+      "kind": "allowed",
+      "reason": "历史超条数/字符阈值，新一轮开始前先压",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "active --COMPACT_DONE--> active",
+      "from": "active",
+      "event": "COMPACT_DONE",
+      "guard": null,
+      "to": "active",
+      "kind": "noop",
+      "reason": "没有进行中的压缩，忽略",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "compacting --COMPACT_DONE--> active",
+      "from": "compacting",
+      "event": "COMPACT_DONE",
+      "guard": null,
+      "to": "active",
+      "kind": "allowed",
+      "reason": "模型摘要成功，summary 累积",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "compacting --COMPACT_FAILED--> active",
+      "from": "compacting",
+      "event": "COMPACT_FAILED",
+      "guard": null,
+      "to": "active",
+      "kind": "allowed",
+      "reason": "模型摘要失败，退回规则压缩后继续",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "compacting --INPUT--> compacting",
+      "from": "compacting",
+      "event": "INPUT",
+      "guard": null,
+      "to": "compacting",
+      "kind": "unknown",
+      "reason": "压缩期间来新输入：单进程 CLI 不会发生，未建模",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    }
+  ],
+  "invariants": [
+    {
+      "id": "compaction_never_touches_current_turn",
+      "text": "压缩只动历史，不碰本轮消息",
+      "priority": "P1",
+      "status": "planned",
+      "evidence": []
+    }
+  ],
+  "cells": {
+    "total": 15,
+    "listed": 8,
+    "declared_unknown": [
+      "compacting --INPUT--> compacting"
+    ],
+    "unlisted": [
+      "new + INPUT",
+      "new + COMPACT_DONE",
+      "new + COMPACT_FAILED",
+      "active + FIRST_INPUT",
+      "active + COMPACT_FAILED",
+      "compacting + FIRST_INPUT",
+      "compacting + COMPACT_NEEDED"
+    ]
+  },
+  "reachable": {
+    "states": [
+      "new",
+      "active",
+      "compacting"
+    ],
+    "unreachable_states": [],
+    "unreachable_rows": []
+  }
+}
