@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 
 // S6：AGENTS.md 是唯一入口，它引用的文件与命令必须真的存在——文档漂了就红。
 const agents = readFileSync("AGENTS.md", "utf8");
@@ -38,7 +38,42 @@ describe("AGENTS.md 守文档", () => {
   });
 
   it("AGENTS.md 里写的单测总数与 vitest 实跑一致由 npm test 输出核对；这里只核对测试文件都被列出", () => {
-    for (const f of ["machine", "contracts", "generator", "invariants", "agent-loop", "session-context", "parser", "tools"]) expect(agents).toContain(`test/unit/${f}.test.ts`);
+    const onDisk = readdirSync("test/unit").filter((f) => f.endsWith(".test.ts"));
+    expect(onDisk.length).toBeGreaterThan(10);
+    for (const f of onDisk) expect(agents, `AGENTS.md 没列 test/unit/${f}`).toContain(`test/unit/${f}`);
     expect(agents).toContain("test/live/live.test.ts");
+  });
+
+  it("C1：AGENTS.md 是七个固定章节、按顺序；铁律不超过十条", () => {
+    const heads = [...agents.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
+    expect(heads).toEqual(["产品是什么", "铁律", "门禁", "地图", "禁止事项", "提交纪律", "证据口径"]);
+    const rules = agents.split("## 铁律")[1].split("## 门禁")[0].match(/^\d+\. /gm) ?? [];
+    expect(rules.length).toBeGreaterThan(0);
+    expect(rules.length).toBeLessThanOrEqual(10);
+  });
+
+  it("C1：docs/ARCHITECTURE.md 的机器清单 == contracts/*.machine.ts（表 · 接法 · 谁证明），且每张表的证明文件在盘上", () => {
+    const arch = readFileSync("docs/ARCHITECTURE.md", "utf8");
+    const files = readdirSync("contracts").filter((f) => f.endsWith(".machine.ts")).map((f) => f.replace(".machine.ts", ""));
+    expect(files.length).toBe(3);
+    for (const f of files) expect(arch, `机器清单少了 ${f}`).toMatch(new RegExp(`\\| \`${f}\` \\| (闸|影子|旅程) \\|`));
+    const listed = [...arch.matchAll(/^\| `([a-z-]+)` \| (闸|影子|旅程) \|([^\n]*)$/gm)];
+    expect(listed.map((m) => m[1]).sort()).toEqual([...files].sort());
+    for (const m of listed) {
+      const proofs = [...m[3].matchAll(/`((?:test|src|scripts)\/[^`]+)`/g)].map((x) => x[1]);
+      expect(proofs.length, `${m[1]} 没写谁证明`).toBeGreaterThan(0);
+      for (const p of proofs) expect(existsSync(p), p).toBe(true);
+    }
+  });
+
+  it("C1：scripts/gate.sh 存在，门禁四步按 typecheck → test → contracts:check → live 顺序，落 docs/evidence/<label>/，live 无 key 写 skipped", () => {
+    expect(existsSync("scripts/gate.sh")).toBe(true);
+    const gate = readFileSync("scripts/gate.sh", "utf8");
+    const order = ["typecheck", "npm test", "contracts:check", "test:live"].map((k) => gate.indexOf(k));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(gate).toMatch(/docs\/evidence\//);
+    expect(gate).toMatch(/skipped ≠ 通过/);
+    expect(agents).toContain("scripts/gate.sh");
   });
 });
