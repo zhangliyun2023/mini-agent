@@ -29,8 +29,8 @@ export interface AgentOptions {
   context?: Partial<ContextOptions>;
   /**
    * 表里没列的 (状态, 事件) 怎么处理（D8）：
-   *   "error" = 记 trace，本轮以 error 终态结束（CLI 默认）
-   *   "throw" = 记 trace 后抛出，让测试直接失败（vitest 下默认）
+   *   "error" = 记 trace，本轮以 error 终态结束（默认；运行时不读任何测试环境变量，#11）
+   *   "throw" = 记 trace 后抛出，让测试直接失败（测试需要时显式传）
    */
   unknownTransition?: "error" | "throw";
   /** 只给测试用：注入一张残缺的表，验证闸真的拦得住 */
@@ -81,7 +81,7 @@ export function createAgent(o: AgentOptions) {
   const llmRetries = o.llmRetries ?? 2;
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const ctxOpts: ContextOptions = { ...DEFAULT_CONTEXT, ...o.context };
-  const unknownTransition = o.unknownTransition ?? (process.env.VITEST ? "throw" : "error");
+  const unknownTransition = o.unknownTransition ?? "error";
   const machine = o.machine ?? turnMachine;
   const protocol = turnRunnerProtocol;
 
