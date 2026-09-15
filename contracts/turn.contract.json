@@ -223,6 +223,17 @@
       "note": null
     },
     {
+      "id": "effects_declared",
+      "text": "副作用对账：每条转移记录上出现的 effects[].kind ⊆ 记录 transition 行 id 命中行声明的 effects；compact 只在轮首第一条转移上；表没声明的副作用即 unmodeled，不得静默",
+      "priority": "P0",
+      "status": "enforced",
+      "evidence": [
+        "src/machine/invariants.ts::effectsDeclared",
+        "test/unit/invariants.test.ts::⑤ 副作用对账"
+      ],
+      "note": null
+    },
+    {
       "id": "unknown_never_silent",
       "text": "未列 (状态, 事件) 在运行时被拦下：不执行副作用、记 trace、本轮 error 终态（测试模式直接失败）",
       "priority": "P0",

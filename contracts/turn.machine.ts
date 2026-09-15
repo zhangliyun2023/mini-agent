@@ -20,6 +20,14 @@ export const TERMINAL_STOPPED_BY = { done: "final", max_steps: "max_steps", erro
 
 const LOOP = "test/unit/agent-loop.test.ts";
 
+// effects 声明 = 该行命中时 runtime 会往这条转移记录上挂的副作用种类（不变量 ⑤ effects_declared 按行 id 对账）：
+//   llm     模型调用，挂在 LLM_OK / LLM_FAILED 上
+//   compact 轮首压缩：发生在本轮第一次模型调用之前，没有独立事件，挂在本轮第一条转移（LLM_OK / LLM_FAILED）上；只有轮首那条会带
+//   parse   输出解析，挂在 PARSED_* 上
+//   tool    工具执行，只挂在 TOOLS_DONE 上
+//   answer  终态收尾，落终态的行都带
+// 声明是上界：记录上出现的种类 ⊆ 声明；表没声明的种类 = unmodeled，oracle 点名。
+
 export const turnMachine = defineMachine<TurnState, TurnEvent, TurnFacts>({
   feature: "turn",
   anchor: "docs/SPEC.md#实现决策 → 循环",
@@ -92,6 +100,11 @@ export const turnMachine = defineMachine<TurnState, TurnEvent, TurnFacts>({
       id: "answer_alignment", priority: "P0", status: "enforced",
       text: "答案 == 盘上历史末条 == trace 末次决策：RunResult.answer、session.history 末条 <final>、trace 末条 answer 副作用三处一致",
       evidence: ["src/machine/invariants.ts::answerAligned", "test/unit/invariants.test.ts::④ 答案 == 盘上历史末条 == trace 末次决策"],
+    },
+    {
+      id: "effects_declared", priority: "P0", status: "enforced",
+      text: "副作用对账：每条转移记录上出现的 effects[].kind ⊆ 记录 transition 行 id 命中行声明的 effects；compact 只在轮首第一条转移上；表没声明的副作用即 unmodeled，不得静默",
+      evidence: ["src/machine/invariants.ts::effectsDeclared", "test/unit/invariants.test.ts::⑤ 副作用对账"],
     },
     { id: "unknown_never_silent", priority: "P0", status: "enforced", text: "未列 (状态, 事件) 在运行时被拦下：不执行副作用、记 trace、本轮 error 终态（测试模式直接失败）", evidence: ["src/runtime/agent.ts::unknownTransition", "test/unit/agent-loop.test.ts::表里没列的转移在运行时被拦下"] },
     { id: "api_key_never_in_trace", priority: "P1", status: "planned", text: "API key 不进 trace：trace 只写模型名、耗时、token、预览，不写配置", note: "还没有「把可辨认的假 key 放进配置跑一轮再 grep 产物」的自动测试；现在靠 invariants.test ④ 里的弱断言（trace 文件不含 apiKey|OPENAI）+ CLI 冒烟手工看" },

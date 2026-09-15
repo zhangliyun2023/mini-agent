@@ -1,8 +1,8 @@
 import type { ChatMessage } from "../llm/types.js";
 import type { Effect, TransitionRecord } from "../runtime/trace.js";
-import { TERMINAL_STOPPED_BY, TURN_TERMINAL } from "../../contracts/turn.machine.js";
+import { TERMINAL_STOPPED_BY, TURN_TERMINAL, turnMachine, type TurnMachine } from "../../contracts/turn.machine.js";
 
-// 四条 P0 不变量的独立 oracle（docs/product/SPEC-state-machines.md §2 D3）。
+// 五条 P0 不变量的独立 oracle（docs/product/SPEC-state-machines.md §2 D3 四条 + ⑤ 副作用对账）。
 // 输入只有「用户可见的证据」：一轮的 trace 记录、RunResult、盘上历史末条；不碰 runtime 内部。
 // 每个函数返回违反项列表，空 = 通过。测试里每条都一红一绿：真实运行过 oracle，篡改后的证据被 oracle 点名。
 
@@ -76,14 +76,40 @@ export function answerAligned(ev: TurnEvidence): string[] {
   return v;
 }
 
+/**
+ * ⑤ 副作用对账：每条转移记录上出现的 effects[].kind 必须 ⊆ 记录 `transition` 行 id 在表里命中行声明的 `effects`。
+ * 表上没声明的副作用 = unmodeled（标准 §7「运行时元素清单与契约清单不一致」在本仓的对应物）；
+ * compact 只允许出现在轮首第一条转移（seq 1）上。status=unknown 的记录没有行 id，由 unknown 点名单独列，不在这里判。
+ * 对 noop / blocked 记录同样成立：LLM_OK 行声明了 llm，rejected 的 PARSED_ERROR 行声明了 parse。
+ */
+export function effectsDeclared(records: TransitionRecord[], machine: TurnMachine = turnMachine): string[] {
+  const v: string[] = [];
+  const byId = new Map(machine.rows.map((r) => [r.id, r]));
+  for (const r of records) {
+    if (r.status === "unknown") continue;
+    const row = r.transition ? byId.get(r.transition) : undefined;
+    if (!row) {
+      v.push(`#${r.seq} 行 id "${r.transition}" 在表里不存在（${r.from} --${r.event}--> ${r.to} [${r.status}]）`);
+      continue;
+    }
+    const declared = row.effects ?? [];
+    for (const e of r.effects) {
+      if (!declared.includes(e.kind)) v.push(`#${r.seq} ${row.id} 上出现了表未声明的副作用 "${e.kind}"（该行声明：${declared.join(", ") || "无"}）`);
+      else if (e.kind === "compact" && r.seq !== 1) v.push(`#${r.seq} ${row.id} 上出现了 compact，但 compact 只允许挂在轮首第一条转移上`);
+    }
+  }
+  return v;
+}
+
 export const TURN_INVARIANT_CHECKS = {
   no_tool_after_parse_error: (ev: TurnEvidence) => noToolAfterParseError(ev.records),
   exactly_one_final_answer: (ev: TurnEvidence) => exactlyOneFinalAnswer(ev.records),
   terminal_states_distinct: (ev: TurnEvidence) => terminalStatesDistinct(ev.records, ev.result.stoppedBy),
   answer_alignment: (ev: TurnEvidence) => answerAligned(ev),
+  effects_declared: (ev: TurnEvidence) => effectsDeclared(ev.records),
 } as const;
 
-/** 一次跑全部四条；返回每条的违反项 */
+/** 一次跑全部五条；返回每条的违反项 */
 export function checkTurnInvariants(ev: TurnEvidence): Array<{ id: keyof typeof TURN_INVARIANT_CHECKS; violations: string[] }> {
   return (Object.keys(TURN_INVARIANT_CHECKS) as Array<keyof typeof TURN_INVARIANT_CHECKS>).map((id) => ({ id, violations: TURN_INVARIANT_CHECKS[id](ev) }));
 }

@@ -6,6 +6,7 @@ import { turnMachine, turnRunnerProtocol, TERMINAL_STOPPED_BY, type TurnEvent } 
 import { FakeLLM } from "../../src/llm/fake.js";
 import { createAgent } from "../../src/runtime/agent.js";
 import { MemoryTraceSink } from "../../src/runtime/trace.js";
+import { checkTurnInvariants } from "../../src/machine/invariants.js";
 
 // S3：从表 BFS 生成路径清单 → 对账手写 covered_by → 每条路径用 FakeLLM 真跑一遍，trace 序列 == 答案卷。
 const MAX_STEPS = 2;
@@ -72,9 +73,14 @@ describe("生成路径逐条真跑：trace 转移序列 == 答案卷", () => {
   it.each(gen.paths.map((p) => [p.id, p] as const))("%s", async (_id, path) => {
     const llm = new FakeLLM(scriptFor(path.events));
     const trace = new MemoryTraceSink();
-    const r = await createAgent({ llm, trace, maxToolSteps: MAX_STEPS, llmRetries: 0 }).run({ userId: "gen", sessionId: path.id, input: "go" });
+    const agent = createAgent({ llm, trace, maxToolSteps: MAX_STEPS, llmRetries: 0 });
+    const r = await agent.run({ userId: "gen", sessionId: path.id, input: "go" });
     expect(trace.sequence()).toEqual(path.expected);
     expect(r.stoppedBy).toBe(TERMINAL_STOPPED_BY[path.terminal as keyof typeof TERMINAL_STOPPED_BY]);
     expect(trace.records.every((x) => x.status !== "unknown")).toBe(true);
+    // 每条生成路径跑出来的证据都过五条 P0 不变量（含 ⑤ 副作用对账）
+    const report = checkTurnInvariants({ records: trace.records, result: r, lastHistoryMessage: agent.sessions.get("gen", path.id).history.at(-1) });
+    expect(report.map((x) => x.id)).toContain("effects_declared");
+    expect(report.filter((x) => x.violations.length)).toEqual([]);
   });
 });
