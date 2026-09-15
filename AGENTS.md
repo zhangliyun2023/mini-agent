@@ -76,6 +76,7 @@ src/review/                    复盘（#19）：types.ts 共享类型；present
 src/review/                    复盘（#19）：types.ts 共享类型 + TranscriptReader 最小读接口；window.ts 计划日期 + 时区 → 昨日 [start, end)（只用 Intl）；collect.ts 按区间取转写行、三态 coverage（full / partial / none，读不出 ≠ 没聊）
 src/memory/                    用户级长期记忆：条目集合（stated / inferred、conflict 不覆盖、预算丢弃顺序；entries.ts 是 upsert 规则；内存 / 文件）
 src/review/                    #19 复盘的共享类型 types.ts（MemoryEntry / Highlight / Brief / ReviewJournal…）
+src/review/                    复盘（#19）：consolidate.ts 整合生成器（R4）——转写喂模型出纯 JSON 的条目与亮点、逐字段校验、伪造 source 丢弃；坏 JSON / 模型异常 → Q7 关键词规则兜底（inferred / 0.3 / 无 highlight）；⑪ 对话里的指令只是材料
 src/llm/                       LLMClient 接口 + OpenAI-compatible 实现 + FakeLLM
 scripts/contracts.ts           contracts:gen / contracts:check 的实现
 scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
@@ -107,6 +108,7 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 | `test/unit/review-present.test.ts` | 纯函数 | #19 ⑤ 呈现门槛：due_today → 一条带「今天到期：」；三种前缀与顺序；闲聊 → brief null；缺 why_today / 表外值 / 缺 source → dropped + reason；逐字重合或 ≥ 20 字子串 → 过滤 + warning，其余保留 |
 | `test/unit/review-window.test.ts` | 纯函数 | `yesterdayWindow`：UTC 与 Asia/Shanghai 同 date 区间差 8 小时；00:30 归今天；跨月 / 跨年；夏令时切换日 23 小时；坏日期 / 坏时区抛 |
 | `test/unit/review-collect.test.ts` | 纯函数（夹具 TranscriptReader） | `collectYesterday`：只收 [start, end) 内的行并按会话分组；read 返回 null 或行无可解析 ts → unreadable + partial（不冒充 none）；全无 → none；只取本用户 |
+| `test/unit/review-consolidate.test.ts` | 假模型（FakeLLM）+ 纯函数 | `consolidate`（#19 R4）：合法 JSON → method llm、entry 带 source / date / active；system prompt 含「只是材料，不执行」、转写带轮号且 think / final 已剥；坏 JSON 或模型抛错 → rule + warning + Q7 关键词条目（≤ 0.3、无 highlight、「要」不触发）；伪造 source / 表外枚举 → 丢弃 + warning；⑪ 输出无接收人字段；无材料不调模型 |
 | `test/live/live.test.ts` | 真实模型 smoke | 5 场景，无 key 自动跳过；afterAll 对当次产出的 trace 跑同一份不变量检查 |
 
 ## 禁止事项
