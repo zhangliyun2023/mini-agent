@@ -21,6 +21,8 @@ export interface ChatMessage {
   name?: string;
   /** role=assistant 且原生模式时：模型这一步发出的工具调用（文本模式不设，调用在 content 的标签里） */
   toolCalls?: ToolCallRef[];
+  /** 非本轮产物的标记消息：复盘交付（#19 ⑩ / Q8）追加的 assistant 消息标 "review_brief"；不变量 ④ 取「最近一轮的末条」时跳过它。发给厂商时不上线（toWireMessages 只取 role / content） */
+  kind?: "review_brief";
 }
 
 export interface LLMUsage {

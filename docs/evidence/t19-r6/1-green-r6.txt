@@ -1,0 +1,10 @@
+
+ RUN  v3.2.7 /private/tmp/ma-r6-run
+
+ ✓ test/unit/review-run.test.ts (10 tests) 22ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  04:39:40
+   Duration  263ms (transform 69ms, setup 0ms, collect 86ms, tests 22ms, environment 0ms, prepare 44ms)
+

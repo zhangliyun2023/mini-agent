@@ -12,6 +12,14 @@ export interface TurnEvidence {
   result: { answer: string; stoppedBy: "final" | "max_steps" | "error" };
   /** 盘上会话历史里本轮末条消息（应为 assistant 的 <final>…</final>） */
   lastHistoryMessage?: ChatMessage;
+  /** 盘上会话历史全量；给了就取「最近一轮的末条」（跳过复盘交付追加的 kind: "review_brief"，#19 Q8），优先于 lastHistoryMessage */
+  history?: ChatMessage[];
+}
+
+/** 「最近一轮的末条」：从后往前跳过 review_brief 之类非本轮产物的标记消息；没有则 undefined */
+export function lastTurnMessage(history: readonly ChatMessage[]): ChatMessage | undefined {
+  for (let i = history.length - 1; i >= 0; i--) if (history[i].kind !== "review_brief") return history[i];
+  return undefined;
 }
 
 const isTerminal = (s: string) => (TURN_TERMINAL as readonly string[]).includes(s);
@@ -64,14 +72,15 @@ export function terminalStatesDistinct(records: TransitionRecord[], stoppedBy: T
 /** ④ 答案 == 盘上历史末条 == trace 末次决策 */
 export function answerAligned(ev: TurnEvidence): string[] {
   const v: string[] = [];
-  const last = ev.records[ev.records.length - 1];
-  const a = last ? answerEffects(last)[0] : undefined;
+  const lastRecord = ev.records[ev.records.length - 1];
+  const a = lastRecord ? answerEffects(lastRecord)[0] : undefined;
   if (!a) v.push("trace 末条转移上没有 answer 副作用");
   else if (a.answer !== ev.result.answer) v.push(`trace 末次决策的答案与返回值不一致：trace=「${a.answer.slice(0, 60)}」 result=「${ev.result.answer.slice(0, 60)}」`);
-  if (!ev.lastHistoryMessage) v.push("没有盘上历史末条");
+  const last = ev.history ? lastTurnMessage(ev.history) : ev.lastHistoryMessage;
+  if (!last) v.push("没有盘上历史末条");
   else {
-    const m = /^<final>([\s\S]*)<\/final>$/.exec(ev.lastHistoryMessage.content.trim());
-    if (ev.lastHistoryMessage.role !== "assistant" || !m) v.push(`历史末条不是 assistant 的 <final>：${ev.lastHistoryMessage.role} 「${ev.lastHistoryMessage.content.slice(0, 60)}」`);
+    const m = /^<final>([\s\S]*)<\/final>$/.exec(last.content.trim());
+    if (last.role !== "assistant" || !m) v.push(`历史末条不是 assistant 的 <final>：${last.role} 「${last.content.slice(0, 60)}」`);
     else if (m[1] !== ev.result.answer) v.push(`历史末条 <final> 与返回值不一致：history=「${m[1].slice(0, 60)}」 result=「${ev.result.answer.slice(0, 60)}」`);
   }
   return v;
