@@ -100,3 +100,32 @@ epic 分支 `claude/epic-cerf-44n1c4` 上审计后补的三个提交与 #6 冲�
 | PR #9 离线 oracle 一接上就点名了 14 个旧格式 trace 文件 | 证据文件也要有版本，格式一变旧证据就是假阳性 |
 
 未经验证的部分如实写：skill 的探针（`evals/PROBES.md`）只定义没跑，所以这些回流是「维护者判断」，不是「探针通过」。
+
+## 6. 原生 function calling 完整化（issue #10，2026-09-15）
+
+### #4 的根源
+
+#4 的现象是 `--native-tools` 下模型没走 `tool_calls`，直接吐 `<function=calculator><parameter=expression>99*99</parameter></function>` 文本。当时的处置是解析器加第四种别名——治了症状。根源在 runtime 给模型的两条指令互相打架：
+
+- system prompt 不分模式，原生模式下照样教「每次回复必须严格使用 `<think>` / `<tool_call>` / `<final>` 标签格式」并把工具 Schema 列在 prompt 里；
+- 同一请求的 `tools` 字段又告诉模型「用 function calling」。
+
+模型在两套工具协议之间二选一，偶发选了文本那套（Qwen 系的文本工具调用格式恰好就是 `<function=…><parameter=…>`）。此外 `toWireMessages` 把两种模式的工具结果都降级成 `[工具 … 的结果]` 前缀的 user 消息，历史里从来没有真的 `assistant.tool_calls` / `tool` 消息，模型也就看不到「上一步是走 function calling 做的」这个示范。
+
+### 这次改法（每片先红后绿，红的输出在提交正文与 `docs/evidence/t10/REPORT.md`）
+
+1. `LLMClient` 加 `toolMode`（`OpenAICompatibleLLM` 传 `nativeTools` 即 native；`FakeLLM` 加 `{ native: true }`）。`buildSystemPrompt` 按模式出两份：原生模式只有角色 + 行为规则（calculator / remember / 追问 / 不编造）+ 记忆块，不含任何标签与 Schema，工具只经 API `tools` 字段给。文本模式 prompt 一字未动。
+2. `ChatMessage` 加可选 `toolCalls`（id / name / 原始 arguments 串）；runtime 在原生模式下把厂商的 `tool_calls` 直接转成统一的 `ParsedOutput`（坏 JSON 的 arguments 与文本协议一样记 errors 回喂），本轮 assistant 消息带 `toolCalls`，工具结果的 `toolCallId` 用厂商 id，最终答案不套 `<final>`。trace 的 llm effect 加 `mode`。
+3. `toWireMessages` 原生模式原样回放 `assistant.tool_calls` + `role=tool/tool_call_id`；对不上 id 的 tool 消息（解析错误回喂、文本模式遗留历史）仍降级为 user 免 400。文本模式仍全部降级。
+4. 压缩：摘要转写补上 `toolCalls`，规则兜底按 `toolCalls` 识别工具调用消息。
+
+解析器的 `<function=…>` 别名保留：原生模式下模型若仍把调用写成文本，`nativeToolCalls` 为空时依旧走同一个解析器，#4 的兜底没有拆。
+
+### 真实模型
+
+DeepSeek `deepseek-flash`，只跑一次（`docs/evidence/t10/4-live.txt`）：5/5 场景过，原生场景的 trace（`evals/live-trace/2026-09-15-07-52-native/native.jsonl`）两条 llm effect 都是 `mode: "native"`，第一步 `outputPreview` 是 `[tool_call calculator {"expression": "99*99"}]`（模型走了 `tool_calls`，不是文本）。仍是少量 smoke，不写可靠率。
+
+### 没做
+
+- 混合历史（同一会话先文本模式后原生模式）：不在本票，映射层对 id 对不上的 tool 消息降级为 user 是兜底，没有测试证明它在混合历史下的行为。
+- `test/native/native-tools.test.ts` 放在 `test/native/` 而非 `test/unit/`：`docs.test.ts` 的 §0 条数表以 `docs/TEST_REPORT.md` 为单一事实源，本票不改该文件；下一次改 TEST_REPORT 时应把这 8 条并入表并搬回 `test/unit/`。
