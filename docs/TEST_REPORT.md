@@ -8,7 +8,7 @@
 |---|---|---|
 | `npm run typecheck` | 通过 | `tsc --noEmit`，含 `contracts/` `scripts/` |
 | `npm run contracts:check` | 3 份契约 0 漂移 | turn / session / session-runtime |
-| `npm test` | **12 文件 131 条全绿**（#12 记忆上限后；v0.4 解析器补丁后 128 条；v0.3 125 条见 §8；历史：v0.1 9 文件 89 条 → v0.2 11 文件 113 条） | 不需要 key。**逐文件条数只写在下面这张表里**，`test/unit/docs.test.ts` 用源码 `it(` 静态计数（`it.each` 行按 `// ×N` 标记展开）逐文件对账，总数与文件数也对；其他文档不再另写数字 |
+| `npm test` | **14 文件 158 条全绿**（#12 记忆上限后；v0.4 解析器补丁后 128 条；v0.3 125 条见 §8；历史：v0.1 9 文件 89 条 → v0.2 11 文件 113 条） | 不需要 key。**逐文件条数只写在下面这张表里**，`test/unit/docs.test.ts` 用源码 `it(` 静态计数（`it.each` 行按 `// ×N` 标记展开）逐文件对账，总数与文件数也对；其他文档不再另写数字 |
 | `npm run test:live` | **5/5**（v0.3，UTC 06:27，18.4s）；afterAll 不变量检查真跑：7 文件 / 9 轮 / 42 条转移，25 allowed + 17 noop，0 unknown，0 违反 | 本机有 key；详见 §3 与 §8 |
 
 ### 条数（唯一事实源）
@@ -24,10 +24,12 @@
 | `test/unit/tools.test.ts` | 纯函数 | 18 |
 | `test/unit/docs.test.ts` | 纯函数 | 8 |
 | `test/unit/live-evidence.test.ts` | 只读真实证据 | 3 |
+| `test/unit/llm-errors.test.ts` | 纯函数 | 21 |
+| `test/unit/llm-retry.test.ts` | 假模型 | 6 |
 | `test/unit/agent-loop.test.ts` | 假模型 | 11 |
 | `test/unit/session-context.test.ts` | 假模型 | 14 |
 | `test/unit/invariants.test.ts` | 假模型（含真落盘） | 12 |
-| 合计 | 12 文件 | 131 |
+| 合计 | 14 文件 | 158 |
 
 ## 1. 第一层：纯函数通过（不碰模型、不碰 runtime）
 

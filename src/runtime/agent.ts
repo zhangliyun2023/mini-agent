@@ -9,7 +9,8 @@ import { MemoryUserMemoryStore, renderMemory, type UserMemoryStore } from "../me
 import { assembleMessages, compactSession, DEFAULT_CONTEXT, needsCompaction, stripThink, type ContextOptions } from "../session/context.js";
 import { parseAssistantOutput, type ParsedToolCall } from "../protocol/parser.js";
 import { buildSystemPrompt } from "../protocol/prompt.js";
-import { MemoryTraceSink, newRequestId, preview, type Effect, type TraceSink } from "./trace.js";
+import { MemoryTraceSink, newRequestId, preview, type Effect, type LlmTry, type TraceSink } from "./trace.js";
+import { classifyLlmError, describeLlmError, isRetryable } from "../llm/errors.js";
 import { interpret } from "../machine/interpreter.js";
 import { TERMINAL_STOPPED_BY, turnMachine, turnRunnerProtocol, type TurnEvent, type TurnMachine, type TurnState } from "../../contracts/turn.machine.js";
 
@@ -21,13 +22,15 @@ export interface AgentOptions {
   trace?: TraceSink;
   /** 一次用户输入内最多经过多少次 LLM 决策（每次决策可带多个工具调用）——防死循环的安全阀 */
   maxToolSteps?: number;
-  /** LLM 调用失败的重试次数 */
+  /** LLM 调用失败的重试次数（只对可重试类生效：限流 / 服务端 / 超时 / 网络 / 未知；认证 / 请求格式 / 不存在一次即终） */
   llmRetries?: number;
+  /** 重试前的等待（默认真等 setTimeout；测试注入成记录用的假函数，不真等） */
+  sleep?: (ms: number) => Promise<void>;
   context?: Partial<ContextOptions>;
   /**
    * 表里没列的 (状态, 事件) 怎么处理（D8）：
-   *   "error" = 记 trace，本轮以 error 终态结束（CLI 默认）
-   *   "throw" = 记 trace 后抛出，让测试直接失败（vitest 下默认）
+   *   "error" = 记 trace，本轮以 error 终态结束（默认；运行时不读任何测试环境变量，#11）
+   *   "throw" = 记 trace 后抛出，让测试直接失败（测试需要时显式传）
    */
   unknownTransition?: "error" | "throw";
   /** 只给测试用：注入一张残缺的表，验证闸真的拦得住 */
@@ -54,6 +57,17 @@ export interface RunResult {
   traceId: string;
 }
 
+/** 重试退避基数：第 n 次失败后等 300ms × 2^n（n 从 0 起） */
+const BACKOFF_BASE_MS = 300;
+
+/** 模型调用重试耗尽或遇到不可重试错误：message 是给用户看的一行（含类别与状态码），tries 是逐次尝试明细（进 trace） */
+class LlmCallFailed extends Error {
+  constructor(message: string, readonly tries: LlmTry[]) {
+    super(message);
+    this.name = "LlmCallFailed";
+  }
+}
+
 export function defaultTools(memory: UserMemoryStore): ToolRegistry {
   return new ToolRegistry().register(calculatorTool).register(searchTool).register(createTodoTool()).register(createRememberTool(memory));
 }
@@ -65,23 +79,30 @@ export function createAgent(o: AgentOptions) {
   const trace = o.trace ?? new MemoryTraceSink();
   const maxToolSteps = o.maxToolSteps ?? 8;
   const llmRetries = o.llmRetries ?? 2;
+  const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const ctxOpts: ContextOptions = { ...DEFAULT_CONTEXT, ...o.context };
-  const unknownTransition = o.unknownTransition ?? (process.env.VITEST ? "throw" : "error");
+  const unknownTransition = o.unknownTransition ?? "error";
   const machine = o.machine ?? turnMachine;
   const protocol = turnRunnerProtocol;
 
-  async function callLLM(messages: ChatMessage[]): Promise<{ res: LLMResponse; attempts: number }> {
-    let lastErr: unknown;
-    let attempt = 0;
-    for (; attempt <= llmRetries; attempt++) {
+  /**
+   * 模型调用 + 按错误类型重试（#11）：可重试类指数退避 300ms × 2^n，不可重试类一次即终。
+   * 成功返回 {res, attempts, tries}；全部失败抛 LlmCallFailed，把逐次尝试明细带给 trace。
+   */
+  async function callLLM(messages: ChatMessage[]): Promise<{ res: LLMResponse; attempts: number; tries: LlmTry[] }> {
+    const tries: LlmTry[] = [];
+    for (let attempt = 0; ; attempt++) {
       try {
-        return { res: await o.llm.chat(messages), attempts: attempt + 1 };
+        return { res: await o.llm.chat(messages), attempts: attempt + 1, tries };
       } catch (e) {
-        lastErr = e;
-        if (attempt < llmRetries) await new Promise((r) => setTimeout(r, 300 * 2 ** attempt));
+        const errorClass = classifyLlmError(e);
+        const again = isRetryable(errorClass) && attempt < llmRetries;
+        const waitMs = again ? BACKOFF_BASE_MS * 2 ** attempt : 0;
+        tries.push({ n: attempt + 1, errorClass, waitMs });
+        if (!again) throw new LlmCallFailed(describeLlmError(e, errorClass), tries);
+        await sleep(waitMs);
       }
     }
-    throw Object.assign(lastErr as Error, { attempts: attempt });
   }
 
   async function run({ userId, sessionId, input }: RunInput): Promise<RunResult> {
@@ -158,15 +179,16 @@ export function createAgent(o: AgentOptions) {
         const request_id = newRequestId();
         let res: LLMResponse;
         let attempts: number;
+        let tries: LlmTry[];
         try {
-          ({ res, attempts } = await callLLM(messages));
+          ({ res, attempts, tries } = await callLLM(messages));
         } catch (e) {
-          const msg = (e as Error).message ?? String(e);
-          transition("LLM_FAILED", [{ kind: "llm", request_id, step, model: o.llm.model, messages: messages.length, attempts: (e as { attempts?: number }).attempts ?? llmRetries + 1, durationMs: Date.now() - t0, outputPreview: "", error: msg }], { error: `模型调用失败：${msg}` });
+          const failed = e instanceof LlmCallFailed ? e : new LlmCallFailed(describeLlmError(e), [{ n: 1, errorClass: classifyLlmError(e), waitMs: 0 }]);
+          transition("LLM_FAILED", [{ kind: "llm", request_id, step, model: o.llm.model, messages: messages.length, attempts: failed.tries.length, tries: failed.tries, durationMs: Date.now() - t0, outputPreview: "", error: failed.message }], { error: `模型调用失败：${failed.message}` });
           continue;
         }
         const text = res.text;
-        transition("LLM_OK", [{ kind: "llm", request_id, step, model: o.llm.model, messages: messages.length, attempts, promptTokens: res.usage?.promptTokens, completionTokens: res.usage?.completionTokens, durationMs: Date.now() - t0, outputPreview: preview(text) }]);
+        transition("LLM_OK", [{ kind: "llm", request_id, step, model: o.llm.model, messages: messages.length, attempts, tries, promptTokens: res.usage?.promptTokens, completionTokens: res.usage?.completionTokens, durationMs: Date.now() - t0, outputPreview: preview(text) }]);
         if (state !== "deciding") continue;
         steps.push({ kind: "llm", detail: preview(text) });
 

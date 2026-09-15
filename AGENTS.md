@@ -86,6 +86,8 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 | `test/unit/generator.test.ts` | 纯函数 + 假模型 | 生成 10 条路径、gaps 为空、生成集合 ⊆ 手写覆盖；答案卷是行 id 序列；每条路径 FakeLLM 真跑，trace 序列 == 答案卷 |
 | `test/unit/invariants.test.ts` | 假模型（含真落盘） | 五条 P0 不变量各一红一绿（⑤ 另有反向红：删表上声明 → 真实记录不合账）；④ 用 FileSessionStore + FileTraceSink；文件持久化接着聊 |
 | `test/unit/live-evidence.test.ts` | 只读真实证据 | 仓库里已提交的 `evals/live-trace/**/*.jsonl` 逐轮过 ① ② ③ ⑤ + unknown 点名；篡改一条记录证明检查会红 |
+| `test/unit/llm-errors.test.ts` | 纯函数 | `classifyLlmError` 按 status / code / name / message 分八类，三类不重试 |
+| `test/unit/llm-retry.test.ts` | 假模型 | 401 一次即 error；429 / 5xx / 超时 / 网络错指数退避重试，逐次尝试进 trace；不传 unknownTransition 不抛出 |
 | `test/unit/agent-loop.test.ts` | 假模型 | 循环行为、blocked 回喂、残缺表验证闸拦得住（error 终态 / 测试模式抛出） |
 | `test/unit/session-context.test.ts` | 假模型 | 窗口隔离、追问、think 剥离、压缩、memory、trace 序列 / request_id / redact |
 | `test/unit/parser.test.ts` | 纯函数 | 协议解析与真实模型偏差 |

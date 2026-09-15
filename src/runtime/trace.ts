@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { appendJsonl } from "../session/store.js";
 import type { TurnEvent, TurnState } from "../../contracts/turn.machine.js";
 import type { Verdict } from "../machine/interpreter.js";
+import type { LlmErrorClass } from "../llm/errors.js";
 
 // trace 的单位是「一次状态转移」（docs/product/SPEC-state-machines.md §2 D4）：
 //   {trace_id, step, from, to, event, status, reason, effects}
@@ -9,11 +10,18 @@ import type { Verdict } from "../machine/interpreter.js";
 // 旧的 stop 记录被终态转移取代——终态转移的 effects 里带一条 answer。
 // 本地全量落盘、不采样；API key 从不进 trace。
 
+/** 一次失败的模型调用尝试（#11）：第几次、错误类别、这次失败后等了多久再试（最后一次或不重试时为 0） */
+export interface LlmTry {
+  n: number;
+  errorClass: LlmErrorClass;
+  waitMs: number;
+}
+
 export type Effect =
   | { kind: "compact"; before: number; after: number; method: "llm" | "rule" }
   /** 记忆块超 memoryMaxChars 被截：总条数、保留条数（最新的）、上限——warning，挂在轮首第一条转移上 */
   | { kind: "memory_truncated"; total: number; kept: number; limit: number }
-  | { kind: "llm"; request_id: string; step: number; model: string; messages: number; attempts: number; promptTokens?: number; completionTokens?: number; durationMs: number; outputPreview: string; error?: string }
+  | { kind: "llm"; request_id: string; step: number; model: string; messages: number; attempts: number; tries: LlmTry[]; promptTokens?: number; completionTokens?: number; durationMs: number; outputPreview: string; error?: string }
   | { kind: "parse"; step: number; toolCalls: number; hasFinal: boolean; errors: string[]; warnings: string[] }
   | { kind: "tool"; request_id: string; step: number; name: string; args: Record<string, unknown>; ok: boolean; durationMs: number; resultPreview: string }
   | { kind: "answer"; stoppedBy: "final" | "max_steps" | "error"; answer: string; totalMs: number };
