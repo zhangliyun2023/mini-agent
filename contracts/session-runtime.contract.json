@@ -4,13 +4,16 @@
   "initial": "idle",
   "states": [
     "idle",
-    "busy"
+    "busy",
+    "queued",
+    "executing"
   ],
   "terminal": [],
   "events": [
     "INPUT",
     "TURN_DONE",
-    "ASYNC_DONE"
+    "ASYNC_DONE",
+    "REVIEW_DONE"
   ],
   "guards": [],
   "rows": [
@@ -72,28 +75,118 @@
     },
     {
       "id": "sr-async-while-busy",
-      "signature": "busy --ASYNC_DONE--> busy",
+      "signature": "busy --ASYNC_DONE--> queued",
       "from": "busy",
       "event": "ASYNC_DONE",
       "guard": null,
-      "to": "busy",
-      "kind": "unknown",
+      "to": "queued",
+      "kind": "allowed",
       "reject_code": null,
-      "reason": "忙时异步完成（如后台压缩）：未建模",
+      "reason": "#19 ⑦：复盘触发时用户正在聊 → 排队到本轮结束后执行，不打断本轮（单进程 CLI 不可达，表已建模、运行时不接）",
+      "priority": "P1",
+      "covered_by": [
+        "test/unit/contracts.test.ts::session-runtime（#19 ⑦ Q4）：busy + ASYNC_DONE → queued、idle + ASYNC_DONE → executing、queued + TURN_DONE → executing 三格 allowed；busy + INPUT 仍 declared_unknown；运行时不接"
+      ],
+      "effects": []
+    },
+    {
+      "id": "sr-async-idle",
+      "signature": "idle --ASYNC_DONE--> executing",
+      "from": "idle",
+      "event": "ASYNC_DONE",
+      "guard": null,
+      "to": "executing",
+      "kind": "allowed",
+      "reject_code": null,
+      "reason": "#19 ⑦：空闲时复盘触发 → 立即执行（单进程 CLI 不可达，表已建模、运行时不接）",
+      "priority": "P1",
+      "covered_by": [
+        "test/unit/contracts.test.ts::session-runtime（#19 ⑦ Q4）：busy + ASYNC_DONE → queued、idle + ASYNC_DONE → executing、queued + TURN_DONE → executing 三格 allowed；busy + INPUT 仍 declared_unknown；运行时不接"
+      ],
+      "effects": []
+    },
+    {
+      "id": "sr-queued-turn-done",
+      "signature": "queued --TURN_DONE--> executing",
+      "from": "queued",
+      "event": "TURN_DONE",
+      "guard": null,
+      "to": "executing",
+      "kind": "allowed",
+      "reject_code": null,
+      "reason": "#19 ⑦：本轮结束，执行排队的复盘（单进程 CLI 不可达，表已建模、运行时不接）",
+      "priority": "P1",
+      "covered_by": [
+        "test/unit/contracts.test.ts::session-runtime（#19 ⑦ Q4）：busy + ASYNC_DONE → queued、idle + ASYNC_DONE → executing、queued + TURN_DONE → executing 三格 allowed；busy + INPUT 仍 declared_unknown；运行时不接"
+      ],
+      "effects": []
+    },
+    {
+      "id": "sr-queued-async",
+      "signature": "queued --ASYNC_DONE--> queued",
+      "from": "queued",
+      "event": "ASYNC_DONE",
+      "guard": null,
+      "to": "queued",
+      "kind": "noop",
+      "reject_code": null,
+      "reason": "已有排队的复盘：合并，不排第二个",
       "priority": "P1",
       "covered_by": [],
       "effects": []
     },
     {
-      "id": "sr-async-idle",
-      "signature": "idle --ASYNC_DONE--> idle",
-      "from": "idle",
-      "event": "ASYNC_DONE",
+      "id": "sr-queued-input",
+      "signature": "queued --INPUT--> queued",
+      "from": "queued",
+      "event": "INPUT",
       "guard": null,
-      "to": "idle",
+      "to": "queued",
       "kind": "unknown",
       "reject_code": null,
-      "reason": "空闲时异步完成：未建模",
+      "reason": "排队中来新输入：与 busy + INPUT 同样未决定",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "sr-executing-done",
+      "signature": "executing --REVIEW_DONE--> idle",
+      "from": "executing",
+      "event": "REVIEW_DONE",
+      "guard": null,
+      "to": "idle",
+      "kind": "allowed",
+      "reject_code": null,
+      "reason": "复盘执行完（任一终态）回到空闲",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "sr-executing-input",
+      "signature": "executing --INPUT--> executing",
+      "from": "executing",
+      "event": "INPUT",
+      "guard": null,
+      "to": "executing",
+      "kind": "unknown",
+      "reject_code": null,
+      "reason": "复盘执行中来新输入：排队 / 拒绝 均未决定",
+      "priority": "P1",
+      "covered_by": [],
+      "effects": []
+    },
+    {
+      "id": "sr-executing-async",
+      "signature": "executing --ASYNC_DONE--> executing",
+      "from": "executing",
+      "event": "ASYNC_DONE",
+      "guard": null,
+      "to": "executing",
+      "kind": "unknown",
+      "reject_code": null,
+      "reason": "复盘执行中再触发：合并 / 排队 未决定",
       "priority": "P1",
       "covered_by": [],
       "effects": []
@@ -102,27 +195,35 @@
   "invariants": [
     {
       "id": "no_concurrent_turns_per_session",
-      "text": "同一会话同一时刻至多一轮在跑",
+      "text": "同一会话同一时刻至多一轮在跑，复盘不打断进行中的轮",
       "priority": "P1",
       "status": "planned",
       "evidence": [],
-      "note": "单进程 CLI 串行 for-await，天然成立；多进程 / HTTP 服务时需要锁，busy 行仍 unknown（NEXT_STEPS 4、10）"
+      "note": "单进程 CLI 串行 for-await，天然成立；#19 ⑦ 的 busy / idle + ASYNC_DONE 与 queued + TURN_DONE 三格已在表里建模（queued / executing），但单进程 CLI 不可达、运行时不接；多进程 / HTTP 服务时需要锁（NEXT_STEPS 4、10）"
     }
   ],
   "cells": {
-    "total": 6,
-    "listed": 6,
+    "total": 16,
+    "listed": 12,
     "declared_unknown": [
       "busy --INPUT--> busy",
-      "busy --ASYNC_DONE--> busy",
-      "idle --ASYNC_DONE--> idle"
+      "queued --INPUT--> queued",
+      "executing --INPUT--> executing",
+      "executing --ASYNC_DONE--> executing"
     ],
-    "unlisted": []
+    "unlisted": [
+      "idle + REVIEW_DONE",
+      "busy + REVIEW_DONE",
+      "queued + REVIEW_DONE",
+      "executing + TURN_DONE"
+    ]
   },
   "reachable": {
     "states": [
       "idle",
-      "busy"
+      "busy",
+      "queued",
+      "executing"
     ],
     "unreachable_states": [],
     "unreachable_rows": []

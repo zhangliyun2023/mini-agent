@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
-import { reachable, toContract, type Machine } from "../../src/machine/interpreter.js";
+import { interpret, reachable, toContract, type Machine } from "../../src/machine/interpreter.js";
 import { turnMachine } from "../../contracts/turn.machine.js";
 import { sessionMachine } from "../../contracts/session.machine.js";
 import { sessionRuntimeMachine } from "../../contracts/session-runtime.machine.js";
@@ -62,10 +62,16 @@ describe("turn 表", () => {
 });
 
 describe("session / session-runtime 表（只建表，不接代码）", () => {
-  it("session-runtime：busy 时的 INPUT / ASYNC_DONE 在契约里标为 declared_unknown，诚实可见", () => {
+  it("session-runtime（#19 ⑦ Q4）：busy + ASYNC_DONE → queued、idle + ASYNC_DONE → executing、queued + TURN_DONE → executing 三格 allowed；busy + INPUT 仍 declared_unknown；运行时不接", () => {
     const c = toContract(sessionRuntimeMachine);
-    expect(c.cells.declared_unknown).toEqual(expect.arrayContaining(["busy --INPUT--> busy", "busy --ASYNC_DONE--> busy"]));
+    expect(interpret(sessionRuntimeMachine, "busy", "ASYNC_DONE", {})).toMatchObject({ status: "allowed", to: "queued", row: { id: "sr-async-while-busy" } });
+    expect(interpret(sessionRuntimeMachine, "idle", "ASYNC_DONE", {})).toMatchObject({ status: "allowed", to: "executing", row: { id: "sr-async-idle" } });
+    expect(interpret(sessionRuntimeMachine, "queued", "TURN_DONE", {})).toMatchObject({ status: "allowed", to: "executing", row: { id: "sr-queued-turn-done" } });
+    expect(c.cells.declared_unknown).toContain("busy --INPUT--> busy");
+    expect(c.cells.declared_unknown).not.toContain("busy --ASYNC_DONE--> busy");
     expect(c.rows.find((r) => r.id === "sr-input-while-busy")).toMatchObject({ kind: "unknown", signature: "busy --INPUT--> busy" });
+    // 表已建模但运行时不接：三行的 reason 都写明单进程 CLI 不可达
+    for (const id of ["sr-async-while-busy", "sr-async-idle", "sr-queued-turn-done"]) expect(c.rows.find((r) => r.id === id)?.reason, id).toMatch(/单进程 CLI 不可达/);
     expect(reachable(sessionRuntimeMachine).unreachableStates).toEqual([]);
   });
   it("session：new → active → compacting 三态全可达，rejected / noop 行各至少一条", () => {
@@ -76,3 +82,4 @@ describe("session / session-runtime 表（只建表，不接代码）", () => {
     expect(c.cells.declared_unknown).toEqual(["compacting --INPUT--> compacting"]);
   });
 });
+
