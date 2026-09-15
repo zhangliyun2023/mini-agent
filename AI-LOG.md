@@ -55,8 +55,18 @@
 
 ### 没有验证的
 
-- 真实模型 5 条 live：本次环境无 key，未跑。`evals/live-trace/` 里的记录是改造前的旧格式。
+- 真实模型 5 条 live：实现会话无 key 未跑；之后各批实跑结果、trace 位置与旧格式记录的删除以 `docs/TEST_REPORT.md` §3 为准（本段不再另写结论）。
 - 参照 JS 解释器的逐行语义对照：看不到原件，只能对着 D2 的文字描述。
+
+## 4. 移植 epic 分支三提交（issue #8，2026-09-15）
+
+epic 分支 `claude/epic-cerf-44n1c4` 上审计后补的三个提交与 #6 冲突，不能 cherry-pick；按其 diff 当设计来源，在 main 的形状上重做，每片先红后绿、一片一个提交（红的输出在提交正文与 `docs/TEST_REPORT.md` §8）：
+
+1. 第五条 P0 不变量 `effectsDeclared`：记录上的 `effects[].kind` ⊆ 记录 `transition` 行 id 命中行声明的 `effects`，compact 只在轮首；按行 id 找行（不按 from/event/to），对 noop / blocked 记录同样成立；一红一绿 + 反向红（删表上声明 → 真实记录不合账）；生成器 10 条路径过五条。
+2. `src/machine/evidence.ts`：读 JSONL 按 trace_id 分轮过 ① ② ③ ⑤ + unknown 点名（④ 要返回值与盘上历史，只凭 trace 判不了）；离线过仓库里的 live 记录，live 收尾 afterAll 也过。#6 之前的旧格式记录（05-24 / 05-25）过不了检查（行 id 不存在），删除。
+3. 条数单一事实源：只写在 TEST_REPORT §0 一张表，`docs.test.ts` 用源码 `it(` 静态计数（`it.each` 行 `// ×N`）逐文件对账；AGENTS / README 不写总数；本文 §3 与 SPEC-state-machines §9 过期的 live 结论改为引用。
+
+判断点：「全 allowed」的断言一律写成「无 unknown」并断「有 noop」——LLM_OK 在 #6 之后是 noop 行，真实 trace 里必有 noop，「全 allowed」在新形状下永远是假的。
 
 ### 工具
 

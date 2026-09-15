@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import { llmConfig } from "../../src/config.js";
 import { OpenAICompatibleLLM } from "../../src/llm/openai-compatible.js";
 import { createAgent, defaultTools } from "../../src/runtime/agent.js";
 import { FileTraceSink } from "../../src/runtime/trace.js";
 import { MemoryUserMemoryStore } from "../../src/memory/user-memory.js";
+import { checkTraceFiles, listTraceFiles, summarize } from "../../src/machine/evidence.js";
 
 // 真实 LLM 集成测试：LIVE=1 npm run test:live。trace 写到 evals/live-trace/，提交进仓库当运行证据。
 // 断言只打在「用户可见结果」上（答案里有没有正确数字 / 清单内容），不断模型的措辞。
@@ -60,5 +61,20 @@ describe.skipIf(!cfg)("真实模型（原生 function calling 适配器）", () 
     const agent = build(true);
     const r = await agent.run({ userId: "live", sessionId: "native", input: "算 99*99" });
     expect(r.answer).toMatch(/9801/);
+  });
+});
+
+// 收尾：本次跑出来的 trace 逐轮过「只凭 trace 就能判」的不变量（① ② ③ ⑤ + unknown 点名）。
+// 场景断言只看答案；这一条看的是过程——真实模型下 runtime 是否仍守表、副作用是否都在表上声明过。
+// ④ 需要返回值与盘上历史，live 这里用的是内存会话，不在检查内。
+describe.skipIf(!cfg)("真实模型 trace 过不变量（afterAll）", () => {
+  afterAll(() => {
+    const files = [...listTraceFiles(`evals/live-trace/${stamp}`), ...listTraceFiles(`evals/live-trace/${stamp}-native`)];
+    const report = checkTraceFiles(files);
+    process.stderr.write(`live trace 不变量：${summarize(report)}\n`);
+    if (report.failed.length) throw new Error(`live trace 违反不变量：\n${summarize(report)}`);
+  });
+  it("本次 live 产出的 trace 文件存在", () => {
+    expect(listTraceFiles(`evals/live-trace/${stamp}`).length).toBeGreaterThan(0);
   });
 });

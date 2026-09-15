@@ -75,6 +75,8 @@ rows:    每行显式 id（t-llm-ok 风格，定义期查重）；答案卷 / tr
 
 ## §9 实施状态（2026-09-15 追加）
 
-S0–S6 全部落地，`npm run check` 全绿（typecheck、3 份契约 0 漂移、89 条单测）。真实模型 live 本次未重跑（无 key）。
+S0–S6 全部落地，`npm run check` 全绿。单测条数与真实模型 live 结果以 `docs/TEST_REPORT.md` §0 / §3 为唯一事实源（本节不再另写数字）。
 
-**v0.2（issue #5，2026-09-15）**：行 id / request_id / rejected→blocked / planned note / redact / 答案卷落盘 / 随机探索 / 变异 / 门禁与七章节文档全部落地；`bash scripts/gate.sh v0.2` → typecheck 0、113 条单测全绿、3 份契约 0 漂移、live 5/5，证据在 `docs/evidence/v0.2/`。入口见 `AGENTS.md`，逐条证据见 `docs/TEST_REPORT.md`，剩余项见 `docs/NEXT_STEPS.md`。规格未写死而由实现补的判断（compact 挂哪条转移、unknown 默认处理、runner 协议）记录在 `AI-LOG.md` §3。
+**v0.2（issue #5，2026-09-15）**：行 id / request_id / rejected→blocked / planned note / redact / 答案卷落盘 / 随机探索 / 变异 / 门禁与七章节文档全部落地；门禁数字见 `docs/TEST_REPORT.md` §7，证据在 `docs/evidence/v0.2/`。
+
+**v0.3（issue #8，2026-09-15）**：第 ⑤ 条 P0 不变量 `effects_declared`（副作用对账，按行 id）、trace 证据离线 oracle（`src/machine/evidence.ts`，live 收尾也过）、条数单一事实源；门禁数字见 `docs/TEST_REPORT.md` §8，证据在 `docs/evidence/v0.3/`。入口见 `AGENTS.md`，逐条证据见 `docs/TEST_REPORT.md`，剩余项见 `docs/NEXT_STEPS.md`。规格未写死而由实现补的判断（compact 挂哪条转移、unknown 默认处理、runner 协议）记录在 `AI-LOG.md` §3。

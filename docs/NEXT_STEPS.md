@@ -4,7 +4,7 @@
 
 ## 有 key 之后立刻做
 
-1. **修两个 live 暴露的旧问题**（issue #3 mock search 分词、#4 `<function=…>` 标签变体）；绿 = 各一条红测转绿，live 连跑两次 5/5。
+1. ~~修两个 live 暴露的旧问题（#3、#4）~~ → 已在 #6（`83d078a`）修复，修后 live 5/5（`docs/TEST_REPORT.md` §3）。剩下：live 再连跑一次 5/5 且 afterAll 不变量检查过（需要 key）。
 2. **API key 不进 trace 的自动测试**：配置里放一个可辨认的假 key 跑一轮（可用 FakeLLM 包一层读配置的客户端），grep `trace/` 与 `data/` 产物；绿 = 找不到。把表里 `api_key_never_in_trace` 从 planned 改 enforced。
 
 ## 状态机线的后续切片

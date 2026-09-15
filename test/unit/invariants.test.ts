@@ -7,9 +7,11 @@ import { createAgent } from "../../src/runtime/agent.js";
 import { FileTraceSink, MemoryTraceSink, type TransitionRecord } from "../../src/runtime/trace.js";
 import { FileSessionStore, type Session } from "../../src/session/store.js";
 import { FileUserMemoryStore } from "../../src/memory/user-memory.js";
-import { answerAligned, checkTurnInvariants, exactlyOneFinalAnswer, noToolAfterParseError, terminalStatesDistinct } from "../../src/machine/invariants.js";
+import { answerAligned, checkTurnInvariants, effectsDeclared, exactlyOneFinalAnswer, noToolAfterParseError, terminalStatesDistinct } from "../../src/machine/invariants.js";
+import { defineMachine } from "../../src/machine/interpreter.js";
+import { turnMachine, type TurnEvent, type TurnFacts, type TurnState } from "../../contracts/turn.machine.js";
 
-// S4：四条 P0 不变量各一条 Given / When / Then，每条一红一绿——
+// S4：五条 P0 不变量各一条 Given / When / Then，每条一红一绿——
 //   绿：真实跑出来的证据通过 oracle；红：把证据篡改成违反的样子，oracle 必须点名。
 // oracle 只看用户可见证据（trace 记录、返回值、盘上历史），不碰 runtime 内部。
 
@@ -76,6 +78,48 @@ describe("③ 三终态互斥可区分", () => {
   });
 });
 
+describe("⑤ 副作用对账：每条转移记录上的副作用种类 ⊆ 命中行（按行 id）声明的 effects", () => {
+  it("绿：Given 轮首压缩 + 坏 JSON + 工具 + final 的完整一轮，When 按记录上的 transition 行 id 逐条对账，Then 每个 effect kind 都在该行声明里，且五种副作用都出现过", async () => {
+    // 第 1 轮直接回答；第 2 轮开始前历史超过 maxHistoryMessages=1 且 keepRecentMessages=0 → 全部压缩（消费一次摘要调用），再走 坏 JSON → 工具 → final
+    const llm = new FakeLLM(["<final>第一轮</final>", (m: any[]) => (m[0].content.includes("对话压缩器") ? "要点" : "<final>不该走这里</final>"), BAD, tc("calculator", { expression: "1+1" }), "<final>2</final>"]);
+    const trace = new MemoryTraceSink();
+    const agent = createAgent({ llm, trace, llmRetries: 0, context: { maxHistoryMessages: 1, keepRecentMessages: 0 } });
+    await agent.run({ userId: "inv", sessionId: "s", input: "一" });
+    await agent.run({ userId: "inv", sessionId: "s", input: "二" });
+    const turn2 = trace.records.filter((r) => r.trace_id === "inv/s/2");
+    expect(effectsDeclared(turn2)).toEqual([]);
+    expect(effectsDeclared(trace.records)).toEqual([]);
+    // 对账不是空转：compact / llm / parse / tool / answer 五种都出现过，且 compact 只在轮首第一条转移上
+    expect(new Set(turn2.flatMap((r) => r.effects.map((e) => e.kind)))).toEqual(new Set(["compact", "llm", "parse", "tool", "answer"]));
+    expect(turn2.find((r) => r.effects.some((e) => e.kind === "compact"))!.seq).toBe(1);
+  });
+  it("红：把 tool 副作用挪到 LLM_OK 记录上 → 按行 id 点名 unmodeled；把 compact 挪到非轮首 → 点名；行 id 在表里不存在 → 点名", async () => {
+    const { records } = await runOnce([tc("calculator", { expression: "1+1" }), "<final>2</final>"]);
+    const tampered = clone(records);
+    const tool = tampered.find((r) => r.transition === "t-tools-done")!.effects[0];
+    tampered.find((r) => r.transition === "t-llm-ok")!.effects.push(tool);
+    const v1 = effectsDeclared(tampered);
+    expect(v1).toHaveLength(1);
+    expect(v1[0]).toMatch(/#1 t-llm-ok 上出现了表未声明的副作用 "tool"（该行声明：compact, llm）/);
+    const late = clone(records);
+    late.find((r) => r.transition === "t-tools-done")!.effects.push({ kind: "compact", before: 3, after: 1, method: "rule" });
+    expect(effectsDeclared(late).join("\n")).toMatch(/#3 t-tools-done 上出现了表未声明的副作用 "compact"/);
+    const ghost = clone(records);
+    ghost[0].transition = "t-does-not-exist";
+    expect(effectsDeclared(ghost).join("\n")).toMatch(/#1 行 id "t-does-not-exist" 在表里不存在/);
+  });
+  it("反向红：记录不动、把表里 TOOLS_DONE 行的 effects 声明删掉 → 真实记录立刻不合账（表、代码、trace 三者不许漂的第三条边）", async () => {
+    const { records } = await runOnce([tc("calculator", { expression: "1+1" }), "<final>2</final>"]);
+    const stingy = defineMachine<TurnState, TurnEvent, TurnFacts>({
+      ...turnMachine,
+      rows: turnMachine.rows.map((r) => (r.event === "TOOLS_DONE" ? { ...r, effects: [] } : r)),
+    });
+    expect(effectsDeclared(records)).toEqual([]);
+    const v = effectsDeclared(records, stingy);
+    expect(v.join("\n")).toMatch(/#3 t-tools-done 上出现了表未声明的副作用 "tool"（该行声明：无）/);
+  });
+});
+
 describe("④ 答案 == 盘上历史末条 == trace 末次决策（FileSessionStore + FileTraceSink 真落盘）", () => {
   function build(dir: string, script: string[]) {
     const llm = new FakeLLM(script);
@@ -92,8 +136,10 @@ describe("④ 答案 == 盘上历史末条 == trace 末次决策（FileSessionSt
     expect(answerAligned({ records, result: r, lastHistoryMessage: session.history.at(-1) })).toEqual([]);
     expect(session.history.at(-1)).toEqual({ role: "assistant", content: "<final>答案是 42</final>" });
     expect((records.at(-1)!.effects.find((e) => e.kind === "answer") as any).answer).toBe("答案是 42");
-    // 四条一起跑也全过
-    expect(checkTurnInvariants({ records, result: r, lastHistoryMessage: session.history.at(-1) }).every((x) => x.violations.length === 0)).toBe(true);
+    // 五条一起跑也全过（含 ⑤ 副作用对账）
+    const all = checkTurnInvariants({ records, result: r, lastHistoryMessage: session.history.at(-1) });
+    expect(all.map((x) => x.id)).toEqual(["no_tool_after_parse_error", "exactly_one_final_answer", "terminal_states_distinct", "answer_alignment", "effects_declared"]);
+    expect(all.every((x) => x.violations.length === 0)).toBe(true);
     // API key 之类的配置不在 trace 里
     expect(readFileSync(join(dir, "trace", "w1.jsonl"), "utf8")).not.toMatch(/apiKey|OPENAI/);
   });

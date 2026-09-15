@@ -18,10 +18,10 @@ npm run chat -- --user A --session w1
 ## 验证
 
 ```bash
-npm test                 # 全部单测，不需要 key（条数见 docs/evidence/<label>/2-unit.txt）
+npm test                 # 全部单测，不需要 key；条数见 docs/TEST_REPORT.md §0
 npm run check            # typecheck + 契约漂移检查 + 单测
 npm run test:live        # 真实模型 5 个 smoke，需要 key
-bash scripts/gate.sh v0.2   # 一键门禁，证据落 docs/evidence/v0.2/（无 key 时 live 写 skipped）
+bash scripts/gate.sh v0.3   # 一键门禁，证据落 docs/evidence/v0.3/（无 key 时 live 写 skipped）
 ```
 
 ## 指路

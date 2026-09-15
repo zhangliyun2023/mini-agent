@@ -41,7 +41,7 @@ describe("随机探索器", () => {
     expect(min).toEqual([3, 7]);
   });
 
-  it.each([
+  it.each([ // ×3
     ["turn", turnMachine],
     ["session", sessionMachine],
     ["session-runtime", sessionRuntimeMachine],
