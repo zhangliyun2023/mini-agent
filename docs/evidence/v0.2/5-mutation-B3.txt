@@ -1,0 +1,26 @@
+# 2026-09-14T23:55:42-06:00 node=v24.15.0 3134e6f 变异（一次性，不入库）：contracts/session-runtime.machine.ts 行 sr-input-while-busy kind 'unknown' → 'allowed'
+
+## npm run contracts:check
+✓ contracts/turn.contract.json 无漂移
+✓ contracts/session.contract.json 无漂移
+✗ contracts/session-runtime.contract.json 与表不一致（运行 npm run contracts:gen 重新生成）
+exit 1 (expected 1 —— 变异必须红)
+
+## npm test（只列红的）
+   × 契约 JSON 与表 0 漂移 > 盘上 'contracts/session-runtime.contract.js…' == toContract() 4ms
+     → expected { feature: 'session-runtime', …(10) } to deeply equal { feature: 'session-runtime', …(10) }
+   ✓ turn 表 > 未列格在契约里诚实可见：5 状态 × 6 事件 = 30 格，8 行落在 6 格，其余 24 格 unlisted 0ms
+   × session / session-runtime 表（只建表，不接代码） > session-runtime：busy 时的 INPUT / ASYNC_DONE 在契约里标为 declared_unknown，诚实可见 1ms
+     → expected [ 'busy --ASYNC_DONE--> busy', …(1) ] to deeply equal ArrayContaining{…}
+   ✓ session / session-runtime 表（只建表，不接代码） > session：new → active → compacting 三态全可达，rejected / noop 行各至少一条 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected { feature: 'session-runtime', …(10) } to deeply equal { feature: 'session-runtime', …(10) }
+[2m    "anchor": "docs/SPEC.md#out-of-scope → HTTP 服务与并发 busy 状态处理",[22m
+AssertionError: expected [ 'busy --ASYNC_DONE--> busy', …(1) ] to deeply equal ArrayContaining{…}
+ Test Files  1 failed | 10 passed (11)
+      Tests  2 failed | 108 passed (110)
+vitest 退出码未被捕获（zsh 下 $PIPESTATUS 为空），红以上面两条 × 为准：2 failed | 108 passed
+
+## 结论
+红在契约层（contracts:check 漂移 + contracts.test 两条）；探索器（explore.test）未红——unknown→allowed 的 busy 自环不违反四条通用不变量，这是探索器的已知边界，写进 TEST_REPORT。
+变异已还原：git status 下 contracts/session-runtime.machine.ts 无改动。
