@@ -1,4 +1,4 @@
-import type { ChatMessage, LLMClient, LLMResponse } from "../llm/types.js";
+import type { ChatMessage, LLMClient, LLMResponse, ToolCallRef, ToolMode } from "../llm/types.js";
 import { ToolRegistry } from "../tools/registry.js";
 import { calculatorTool } from "../tools/calculator.js";
 import { searchTool } from "../tools/search.js";
@@ -7,7 +7,7 @@ import { createRememberTool } from "../tools/remember.js";
 import { MemorySessionStore, type SessionStore } from "../session/store.js";
 import { MemoryUserMemoryStore, renderMemory, type UserMemoryStore } from "../memory/user-memory.js";
 import { assembleMessages, compactSession, DEFAULT_CONTEXT, needsCompaction, stripThink, type ContextOptions } from "../session/context.js";
-import { parseAssistantOutput, type ParsedToolCall } from "../protocol/parser.js";
+import { parseAssistantOutput, type ParsedOutput, type ParsedToolCall } from "../protocol/parser.js";
 import { buildSystemPrompt } from "../protocol/prompt.js";
 import { MemoryTraceSink, newRequestId, preview, type Effect, type LlmTry, type TraceSink } from "./trace.js";
 import { classifyLlmError, describeLlmError, isRetryable } from "../llm/errors.js";
@@ -68,6 +68,29 @@ class LlmCallFailed extends Error {
   }
 }
 
+/** 本轮待执行的调用：原生模式多带一份厂商给的 tool_call（id + 原始 arguments 串），回放时原样发回 */
+type RuntimeToolCall = ParsedToolCall & { ref?: ToolCallRef };
+
+/**
+ * 原生 function calling 的 tool_calls → 与文本协议同一形状的 ParsedOutput（#10）：runtime 下游的闸、trace、工具执行一条路径。
+ * arguments 不是合法 JSON 的调用不执行，记进 errors 回喂（与文本协议里坏 JSON 的处置一致）。
+ */
+function fromNativeToolCalls(calls: ToolCallRef[]): { parsed: ParsedOutput; runtimeCalls: RuntimeToolCall[] } {
+  const runtimeCalls: RuntimeToolCall[] = [];
+  const errors: string[] = [];
+  for (const c of calls) {
+    let args: unknown;
+    try {
+      args = JSON.parse(c.arguments);
+    } catch (e) {
+      errors.push(`tool_call ${c.name}（${c.id}）的 arguments 不是合法 JSON：${(e as Error).message}；原文：${c.arguments.slice(0, 200)}`);
+      continue;
+    }
+    runtimeCalls.push({ name: c.name, arguments: args && typeof args === "object" && !Array.isArray(args) ? (args as Record<string, unknown>) : {}, ref: c });
+  }
+  return { parsed: { toolCalls: runtimeCalls.map(({ name, arguments: a }) => ({ name, arguments: a })), errors, warnings: [] }, runtimeCalls };
+}
+
 export function defaultTools(memory: UserMemoryStore): ToolRegistry {
   return new ToolRegistry().register(calculatorTool).register(searchTool).register(createTodoTool()).register(createRememberTool(memory));
 }
@@ -84,6 +107,8 @@ export function createAgent(o: AgentOptions) {
   const unknownTransition = o.unknownTransition ?? "error";
   const machine = o.machine ?? turnMachine;
   const protocol = turnRunnerProtocol;
+  /** 工具给法由 LLM 客户端决定（#10）：原生模式下 system prompt 不教标签协议 */
+  const mode: ToolMode = o.llm.toolMode === "native" ? "native" : "text";
 
   /**
    * 模型调用 + 按错误类型重试（#11）：可重试类指数退避 300ms × 2^n，不可重试类一次即终。
@@ -128,10 +153,10 @@ export function createAgent(o: AgentOptions) {
 
     const memoryBlock = renderMemory(memory.load(userId), ctxOpts.memoryMaxChars);
     if (memoryBlock.truncated) pendingEffects.push({ kind: "memory_truncated", ...memoryBlock.truncated, limit: ctxOpts.memoryMaxChars });
-    const systemPrompt = buildSystemPrompt(tools.specs(), memoryBlock.block);
+    const systemPrompt = buildSystemPrompt(tools.specs(), memoryBlock.block, mode);
     const working: ChatMessage[] = [{ role: "user", content: input }];
     const toolCtx = { sessionState: session.state, userId, sessionId };
-    let pendingCalls: ParsedToolCall[] = [];
+    let pendingCalls: RuntimeToolCall[] = [];
 
     const maxStepsAnswer = () => {
       const lastTools = working.filter((m) => m.role === "tool").slice(-3).map((m) => `${m.name}: ${preview(m.content, 200)}`).join("\n");
@@ -158,7 +183,8 @@ export function createAgent(o: AgentOptions) {
           to === "done" ? (opts.final ?? "") :
           to === "max_steps" ? maxStepsAnswer() :
           (opts.error ?? "未知错误");
-        working.push({ role: "assistant", content: `<final>${answer}</final>` });
+        // 原生模式的历史里不出现标签：模型没被教过 <final>，回放时也不该看到
+        working.push({ role: "assistant", content: mode === "native" ? answer : `<final>${answer}</final>` });
         session.history.push(...stripThink(working));
         sessions.save(session);
         all.push({ kind: "answer", stoppedBy, answer, totalMs: Date.now() - startedAt });
@@ -184,15 +210,19 @@ export function createAgent(o: AgentOptions) {
           ({ res, attempts, tries } = await callLLM(messages));
         } catch (e) {
           const failed = e instanceof LlmCallFailed ? e : new LlmCallFailed(describeLlmError(e), [{ n: 1, errorClass: classifyLlmError(e), waitMs: 0 }]);
-          transition("LLM_FAILED", [{ kind: "llm", request_id, step, model: o.llm.model, messages: messages.length, attempts: failed.tries.length, tries: failed.tries, durationMs: Date.now() - t0, outputPreview: "", error: failed.message }], { error: `模型调用失败：${failed.message}` });
+          transition("LLM_FAILED", [{ kind: "llm", request_id, step, model: o.llm.model, mode, messages: messages.length, attempts: failed.tries.length, tries: failed.tries, durationMs: Date.now() - t0, outputPreview: "", error: failed.message }], { error: `模型调用失败：${failed.message}` });
           continue;
         }
         const text = res.text;
-        transition("LLM_OK", [{ kind: "llm", request_id, step, model: o.llm.model, messages: messages.length, attempts, tries, promptTokens: res.usage?.promptTokens, completionTokens: res.usage?.completionTokens, durationMs: Date.now() - t0, outputPreview: preview(text) }]);
+        const nativeCalls = res.nativeToolCalls ?? [];
+        // 原生调用没有文本形态，预览里把它们按 name + 原始 arguments 列出，让 trace 与 steps 看得见模型做了什么
+        const shown = nativeCalls.length ? [text, ...nativeCalls.map((c) => `[tool_call ${c.name} ${c.arguments}]`)].filter(Boolean).join(" ") : text;
+        transition("LLM_OK", [{ kind: "llm", request_id, step, model: o.llm.model, mode, messages: messages.length, attempts, tries, promptTokens: res.usage?.promptTokens, completionTokens: res.usage?.completionTokens, durationMs: Date.now() - t0, outputPreview: preview(shown) }]);
         if (state !== "deciding") continue;
-        steps.push({ kind: "llm", detail: preview(text) });
+        steps.push({ kind: "llm", detail: preview(shown) });
 
-        const parsed = parseAssistantOutput(text);
+        // 原生模式：厂商给了 tool_calls 就直接转成统一的 ParsedOutput；没给（纯文本回答，或模型把调用写成了文本）仍走同一个解析器
+        const { parsed, runtimeCalls } = nativeCalls.length ? fromNativeToolCalls(nativeCalls) : { parsed: parseAssistantOutput(text), runtimeCalls: undefined };
         const parseEffect: Effect = { kind: "parse", step, toolCalls: parsed.toolCalls.length, hasFinal: parsed.final !== undefined, errors: parsed.errors, warnings: parsed.warnings };
         if (parsed.toolCalls.length === 0) {
           if (parsed.final !== undefined) {
@@ -212,9 +242,11 @@ export function createAgent(o: AgentOptions) {
         transition("PARSED_TOOL_CALLS", [parseEffect], {
           apply: () => {
             // 本轮 assistant 消息保留 think，让模型在同一轮里能看见自己的推理；轮次结束时再剥
-            working.push({ role: "assistant", content: text });
+            // 原生模式：assistant 消息带上被接受的 tool_calls（坏 JSON 的那些不带，避免厂商要求每个 id 都有 tool 回复）
+            const accepted = (runtimeCalls ?? []).flatMap((c) => (c.ref ? [c.ref] : []));
+            working.push({ role: "assistant", content: text, ...(accepted.length ? { toolCalls: accepted } : {}) });
             if (parsed.errors.length) working.push({ role: "tool", name: "parser", toolCallId: `parse-${step}`, content: parsed.errors.join("；") });
-            pendingCalls = parsed.toolCalls;
+            pendingCalls = runtimeCalls ?? parsed.toolCalls;
           },
         });
         continue;
@@ -227,7 +259,8 @@ export function createAgent(o: AgentOptions) {
           const request_id = newRequestId();
           const r = await tools.invoke(call.name, call.arguments, toolCtx);
           const content = r.ok ? r.content : `[error] ${r.content}`;
-          working.push({ role: "tool", name: call.name, toolCallId: `${facts.step}-${i}`, content });
+          // 原生模式用厂商给的 tool_call id 对齐（回放时 role=tool + tool_call_id），文本模式用 runtime 自己的 step-index
+          working.push({ role: "tool", name: call.name, toolCallId: call.ref?.id ?? `${facts.step}-${i}`, content });
           steps.push({ kind: "tool", detail: `${call.name} ${r.ok ? "ok" : "fail"}` });
           effects.push({ kind: "tool", request_id, step: facts.step, name: call.name, args: tools.redact(call.name, call.arguments), ok: r.ok, durationMs: r.durationMs, resultPreview: preview(r.content) });
         }

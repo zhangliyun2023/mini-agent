@@ -1,0 +1,24 @@
+# 2026-09-15T01:52:55-06:00 node=v24.15.0 commit=4464a88 label=t10 cmd: npm test -s --
+
+ RUN  v3.2.7 /private/tmp/ma-native
+
+ ✓ test/unit/parser.test.ts (16 tests) 3ms
+ ✓ test/unit/live-evidence.test.ts (3 tests) 10ms
+ ✓ test/unit/journeys.test.ts (8 tests) 7ms
+ ✓ test/unit/agent-loop.test.ts (11 tests) 7ms
+ ✓ test/unit/generator.test.ts (16 tests) 8ms
+ ✓ test/unit/invariants.test.ts (12 tests) 14ms
+ ✓ test/unit/session-context.test.ts (11 tests) 15ms
+ ✓ test/native/native-tools.test.ts (8 tests) 62ms
+ ✓ test/unit/docs.test.ts (8 tests) 13ms
+ ✓ test/unit/tools.test.ts (18 tests) 7ms
+ ✓ test/unit/contracts.test.ts (9 tests) 5ms
+ ✓ test/unit/machine.test.ts (10 tests) 6ms
+ ✓ test/unit/explore.test.ts (6 tests) 211ms
+
+ Test Files  13 passed (13)
+      Tests  136 passed (136)
+   Start at  01:52:55
+   Duration  456ms (transform 306ms, setup 0ms, collect 884ms, tests 367ms, environment 1ms, prepare 550ms)
+
+exit 0 (expected 0)

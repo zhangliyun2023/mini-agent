@@ -1,0 +1,5 @@
+# 2026-09-15T01:52:56-06:00 node=v24.15.0 commit=4464a88 label=t10 cmd: npm run -s contracts:check
+✓ contracts/turn.contract.json 无漂移
+✓ contracts/session.contract.json 无漂移
+✓ contracts/session-runtime.contract.json 无漂移
+exit 0 (expected 0)

@@ -72,7 +72,7 @@ export async function compactSession(session: Session, llm: LLMClient, opts: Con
 }
 
 async function summarizeWithLLM(old: ChatMessage[], llm: LLMClient, prev?: string): Promise<string> {
-  const transcript = old.map((m) => `[${m.role}${m.name ? ":" + m.name : ""}] ${m.content}`).join("\n");
+  const transcript = old.map((m) => `[${m.role}${m.name ? ":" + m.name : ""}] ${renderContent(m)}`).join("\n");
   const res = await llm.chat([
     {
       role: "system",
@@ -86,12 +86,21 @@ async function summarizeWithLLM(old: ChatMessage[], llm: LLMClient, prev?: strin
   return text;
 }
 
+/** 原生模式的 assistant 消息把调用放在 toolCalls 里而不是 content 的标签里；转写时补上，摘要器才知道做过什么 */
+function renderContent(m: ChatMessage): string {
+  const calls = (m.toolCalls ?? []).map((c) => `调用 ${c.name}(${c.arguments})`).join("；");
+  return [m.content, calls].filter(Boolean).join(" ");
+}
+
+/** 这条 assistant 消息是不是在发工具调用（文本协议看标签，原生模式看 toolCalls） */
+const isToolCallMessage = (m: ChatMessage) => m.role === "assistant" && (m.content.includes("<tool_call>") || !!m.toolCalls?.length);
+
 /** 规则兜底：保留每条用户原话和每条最终答案的首句，丢掉工具中间过程 */
 export function summarizeByRule(old: ChatMessage[], prev?: string): string {
   const lines: string[] = [];
   for (const m of old) {
     if (m.role === "user") lines.push(`用户：${m.content.slice(0, 80)}`);
-    else if (m.role === "assistant" && !m.content.includes("<tool_call>")) lines.push(`助手：${m.content.split(/[。\n]/)[0].slice(0, 80)}`);
+    else if (m.role === "assistant" && !isToolCallMessage(m) && m.content.trim()) lines.push(`助手：${m.content.split(/[。\n]/)[0].slice(0, 80)}`);
   }
   return [prev, ...lines].filter(Boolean).join("\n");
 }
