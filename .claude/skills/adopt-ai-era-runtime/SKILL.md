@@ -42,7 +42,7 @@ prompt 用 [`references/audit-prompt.md`](references/audit-prompt.md)，**追加
 
 | 切片 | 用 | 绿 = |
 |---|---|---|
-| S0 解释器 | 把 [`references/machine.example.ts`](references/machine.example.ts) 放进仓库（语义是契约，语言随项目） | 单测：未列组合 unknown、同格多行按 guard 顺序取首条、定义期校验抛错、enumerate 全表、reachable 无不可达、toContract 同表同输出 |
+| S0 解释器 | 把 [`references/machine.example.ts`](references/machine.example.ts) 放进仓库。**语义是契约、字段形状不是**：必须保留的是 guard 顺序取首条、未列组合 unknown 不静默、定义期校验、契约 JSON 确定性；字段名、状态是对象还是字符串、契约 JSON 的段落随实现，不要把「和参考长得不一样」当缺陷 | 单测：未列组合 unknown、同格多行按 guard 顺序取首条、定义期校验抛错、enumerate 全表、reachable 无不可达、toContract 同表同输出 |
 | S1 第一张表 | `/machine-contract`；表样例 [`references/turn.machine.example.ts`](references/turn.machine.example.ts)；契约 JSON 由表生成，`contracts:check` 漂移即红 | 0 漂移；每条 P0 行有 `covered_by` |
 | S2 闸 + 打点 | 运行单元的主循环改为「先 `interpret` 后副作用」；trace 改为一次转移一行（[`references/trace-shape.md`](references/trace-shape.md)）；顺手删掉指向不存在文件的脚本 | 既有单测不改断言全绿；trace 序列测试改为对答案卷 |
 | S2.5 承重面补洞 | 审计指出的「绕过真实路径」的测试改走真实入口（如工具测试走 `registry.invoke` 而不是直接调 handler）；无测试的分支补齐 | 每条一红一绿 |
@@ -60,7 +60,7 @@ prompt 用 [`references/audit-prompt.md`](references/audit-prompt.md)，**追加
 - **外部调用失败后的重试**：超时 / 限流 / 5xx 各是一个 facts 等价类；重试次数用尽是独立事件。
 - **解析失败连发**：连续 PARSED_ERROR 到步数用尽要有兜底行，不能靠 unknown。
 - **事件早到 / 乱序**：工具结果在轮次已结束后到达；取消后的结果。
-- **终态是吸收态**：终态 × 任何事件 noop 或显式列出。
+- **终态无出边**（解释器定义期校验）：一轮到终态循环即退出，终态 × 事件在 runtime 不可达；轮结束后到达的事件（异步工具结果、用户新输入）由外层 session-runtime 表接，不进 turn 表。（2026-09-15 拍板，mini-agent #5 ①）
 - **步数 / 预算用尽**：无 guard 兜底行，不是 guard 里的 else。
 
 随后跑一次**模型层随机探索**（`/model-e2e`「模型层随机探索」，只用 interpret 和表，几秒）：已建模的格不得返回 unknown；第一次红出来的 guard 洞补表、真实运行产生不了的组合登记为状态约束。
