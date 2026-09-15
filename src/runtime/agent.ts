@@ -205,7 +205,7 @@ export function createAgent(o: AgentOptions) {
           const content = r.ok ? r.content : `[error] ${r.content}`;
           working.push({ role: "tool", name: call.name, toolCallId: `${facts.step}-${i}`, content });
           steps.push({ kind: "tool", detail: `${call.name} ${r.ok ? "ok" : "fail"}` });
-          effects.push({ kind: "tool", request_id, step: facts.step, name: call.name, args: call.arguments, ok: r.ok, durationMs: r.durationMs, resultPreview: preview(r.content) });
+          effects.push({ kind: "tool", request_id, step: facts.step, name: call.name, args: tools.redact(call.name, call.arguments), ok: r.ok, durationMs: r.durationMs, resultPreview: preview(r.content) });
         }
         pendingCalls = [];
         transition("TOOLS_DONE", effects);

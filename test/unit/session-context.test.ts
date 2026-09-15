@@ -126,6 +126,19 @@ describe("用户级 memory：跨 session 召回", () => {
     expect(llm.calls[2][0].role).toBe("system");
     expect(llm.calls[2][0].content).toMatch(/<memory>[\s\S]*city: 上海/);
   });
+  it("A5：remember 的 value 不进 trace——tool effect 的 args 走工具的 redact，只留长度；memory 本身照常写入", async () => {
+    const memory = new MemoryUserMemoryStore();
+    const trace = new MemoryTraceSink();
+    const llm = new FakeLLM([tc("remember", { key: "city", value: "上海徐汇区" }), "<final>记住了</final>"]);
+    await createAgent({ llm, memory, trace }).run({ userId: "A", sessionId: "w1", input: "我住上海徐汇区" });
+    expect(memory.load("A")).toMatchObject({ city: "上海徐汇区" });
+    const tool = trace.effects("tool")[0] as any;
+    expect(tool.name).toBe("remember");
+    expect(JSON.stringify(tool.args)).not.toContain("上海徐汇区");
+    expect(tool.args).toMatchObject({ key: "city", value_len: 5 });
+    expect(JSON.stringify(trace.records.filter((r) => r.effects.some((e) => e.kind === "tool")))).not.toContain("上海徐汇区");
+  });
+
   it("别的用户看不到这条记忆", async () => {
     const memory = new MemoryUserMemoryStore();
     memory.set("A", "city", "上海");

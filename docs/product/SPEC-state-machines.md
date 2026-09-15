@@ -37,7 +37,9 @@ kinds:   allowed / rejected / noop；未列出的 (state, event) = unknown
 
 ## §4 打点
 
-一次 `interpret` 一条 JSONL 记录；`effects` 里放该转移触发的 llm / tool / compact 调用摘要（模型、耗时、token、参数、结果预览）。`stop` 记录被终态转移取代。
+一次 `interpret` 一条 JSONL 记录：`{trace_id, feature, step, from, to, event, status, reason, reject_code?, transition, effects}`；`transition` = 命中的行 id（unknown 为 null）；`status` 是判定级 verdict（allowed / blocked / noop / unknown），行级 `kind` 里的 rejected 命中即 blocked。`effects` 里放该转移触发的 llm / tool / compact 调用摘要（模型、耗时、token、参数、结果预览），llm / tool 各带一个 `request_id`（`r-` + 短随机，runtime 生成）。`stop` 记录被终态转移取代。
+
+**落盘白名单与显式例外（拍板③）**：API key 不进 trace；模型输出只进 `outputPreview`（截断）；工具 `args` 按工具声明的 `redact(args)` 脱敏（`remember` 的 value 只留长度），工具结果只进 `resultPreview`（截断）。**唯一显式例外：终态转移上 `answer` 副作用带最终答案全文**——不变量 ④「答案 == 盘上历史末条 == trace 末次决策」需要逐字对齐，截断就没法对。
 
 ## §5 自动 E2E
 
