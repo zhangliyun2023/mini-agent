@@ -1,0 +1,3 @@
+# 2026-09-15T01:51:19-06:00 node=v24.15.0 commit=a531d0e label=t13 cmd: npm run -s test:live
+SKIP 4-live：没有 key（或 GATE_LIVE=0）—— skipped ≠ 通过，真实模型这一层本次 not_run
+exit 0 (expected 0) [skipped]

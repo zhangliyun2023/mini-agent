@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 一键门禁：固定顺序 类型检查 → 单测 → 契约漂移 → 真实模型，每条命令的输出落 docs/evidence/<label>/<n>-<name>.txt。
+# 一键门禁：固定顺序 类型检查 → 单测 → 契约漂移 → 真实模型 → Python 判分器，每条命令的输出落 docs/evidence/<label>/<n>-<name>.txt。
 # 每个文件：首行环境（时间、node、commit），末行 `exit N (expected M)`。
 # live 没有 key（或 GATE_LIVE=0）时写 SKIP 文件——skipped ≠ 通过，报告里必须分开写。
 # 用法：bash scripts/gate.sh v0.2        （label 缺省 = 日期时间）
@@ -30,5 +30,8 @@ else
   { header "npm run -s test:live"; echo "SKIP 4-live：没有 key（或 GATE_LIVE=0）—— skipped ≠ 通过，真实模型这一层本次 not_run"; echo "exit 0 (expected 0) [skipped]"; } >"$OUT/4-live.txt"
   echo "SKIP 4-live (no key) —— skipped ≠ 通过"
 fi
+# 6：Python 判分器（#13）只凭已提交 + 本次 live 新产出的 JSONL 跑 ① ② ③ ⑤ + unknown 点名；与 TS 侧 evidence.ts 独立实现互为对照。
+# 退出码 0 = 全部 passed 且 unknown=0；1 = 有 failed / unknown；2 = 没观察到任何轮（not_observed ≠ 通过）。（5 留给变异证据）
+run 6-judge 0 python3 evals/judge.py evals/live-trace
 echo "evidence: $OUT"
 exit $FAILED

@@ -1,0 +1,24 @@
+# 2026-09-15T01:51:18-06:00 node=v24.15.0 commit=a531d0e label=t13 cmd: npm test -s --
+
+ RUN  v3.2.7 /private/tmp/ma-judge
+
+ ✓ test/unit/docs.test.ts (8 tests) 7ms
+ ✓ test/unit/contracts.test.ts (9 tests) 5ms
+ ✓ test/unit/live-evidence.test.ts (3 tests) 8ms
+ ✓ test/unit/generator.test.ts (16 tests) 7ms
+ ✓ test/unit/session-context.test.ts (11 tests) 7ms
+ ✓ test/unit/agent-loop.test.ts (11 tests) 7ms
+ ✓ test/unit/invariants.test.ts (12 tests) 16ms
+ ✓ test/unit/explore.test.ts (6 tests) 116ms
+ ✓ test/unit/tools.test.ts (18 tests) 4ms
+ ✓ test/unit/journeys.test.ts (8 tests) 10ms
+ ✓ test/unit/machine.test.ts (10 tests) 7ms
+ ✓ test/unit/parser.test.ts (16 tests) 3ms
+ ✓ test/judge/judge-py.test.ts (4 tests) 309ms
+
+ Test Files  13 passed (13)
+      Tests  132 passed (132)
+   Start at  01:51:19
+   Duration  556ms (transform 305ms, setup 0ms, collect 903ms, tests 506ms, environment 2ms, prepare 606ms)
+
+exit 0 (expected 0)
