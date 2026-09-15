@@ -1,0 +1,79 @@
+▶ 数据目录：/tmp/mini-agent-demo.3ycK
+
+━━ 窗口 1（user A / session w1）━━
+mini-agent · model=deepseek-flash · user=A · session=w1 · 文本协议
+输入 /exit 退出，/sessions 列出本用户的会话
+你> 帮我算 (137*29+1234)/7 保留两位
+  ⎿ #1 t-llm-ok [noop] · llm#1 567ms <think>需要精确计算，用 calculator</think><tool_call>{"name":"calculator","arguments":{"expression":"(137*29+1234)/7"}}</tool_ca
+  ⎿ #2 t-tools
+  ⎿ #3 t-tools-done · tool calculator({"expression":"(137*29+1234)/7"}) ok 1ms → 743.8571428571429
+  ⎿ #4 t-llm-ok [noop] · llm#2 577ms <final>(137×29+1234)/7 ≈ 743.857142857…，保留两位小数为 **743.86**。</final>
+  ⎿ #5 t-final · answer(final) 1150ms
+助手> (137×29+1234)/7 ≈ 743.857142857…，保留两位小数为 **743.86**。
+你> 上海今天天气
+  ⎿ #1 t-llm-ok [noop] · llm#1 619ms <think>查上海天气，用 search</think><tool_call>{"name":"search","arguments":{"query":"上海今天天气"}}</tool_call>
+  ⎿ #2 t-tools
+  ⎿ #3 t-tools-done · tool search({"query":"上海今天天气"}) ok 0ms → - 上海今日天气：上海 9 月 15 日多云转晴，24-30℃，东南风 3 级。 - 北京今日天气：北京 9 月 15 日晴，18-27℃，空气质量优。 - 上海地铁运营时间：上海地铁大部分线路 5:30 首班、23:00 前后末班，节假日
+  ⎿ #4 t-llm-ok [noop] · llm#2 892ms <final>根据搜索结果：上海今天多云转晴，气温 24–30℃，东南风 3 级。 提醒一下：这是搜索返回的天气数据，不一定是最新的实况，出门前建议再看一眼天气 App 确认哦。</final>
+  ⎿ #5 t-final · answer(final) 1515ms
+助手> 根据搜索结果：上海今天多云转晴，气温 24–30℃，东南风 3 级。
+
+提醒一下：这是搜索返回的天气数据，不一定是最新的实况，出门前建议再看一眼天气 App 确认哦。
+你> 记两条待办：买牛奶、写周报
+  ⎿ #1 t-llm-ok [noop] · llm#1 900ms <think>用户要新增两条待办，用 todo add，两次调用</think><tool_call>{"name":"todo","arguments":{"action":"add","item":"买牛奶"}}</tool_call>
+  ⎿ #2 t-tools
+  ⎿ #3 t-tools-done · tool todo({"action":"add","item":"买牛奶"}) ok 0ms → 已添加：买牛奶 1. [ ] 买牛奶 · tool todo({"action":"add","item":"写周报"}) ok 0ms → 已添加：写周报 1. [ ] 买牛奶 2. [ ] 写周报
+  ⎿ #4 t-llm-ok [noop] · llm#2 1425ms <final>已记下两条待办： 1. [ ] 买牛奶 2. [ ] 写周报 需要标记完成或删除时告诉我序号就行。</final>
+  ⎿ #5 t-final · answer(final) 2330ms
+助手> 已记下两条待办：
+
+1. [ ] 买牛奶
+2. [ ] 写周报
+
+需要标记完成或删除时告诉我序号就行。
+你> 第一条做完了，把清单给我
+  ⎿ #1 t-llm-ok [noop] · llm#1 673ms <think>先标记第 1 条完成，再列出清单</think> <tool_call>{"name":"todo","arguments":{"action":"done","index":1}}</tool_call> <tool_cal
+  ⎿ #2 t-tools
+  ⎿ #3 t-tools-done · tool todo({"action":"done","index":1}) ok 0ms → 1. [x] 买牛奶 2. [ ] 写周报 · tool todo({"action":"list"}) ok 0ms → 1. [x] 买牛奶 2. [ ] 写周报
+  ⎿ #4 t-llm-ok [noop] · llm#2 902ms <final>已把第 1 条标记为完成，当前清单： 1. [x] 买牛奶 2. [ ] 写周报 还剩「写周报」没做完，加油！</final>
+  ⎿ #5 t-final · answer(final) 1580ms
+助手> 已把第 1 条标记为完成，当前清单：
+
+1. [x] 买牛奶
+2. [ ] 写周报
+
+还剩「写周报」没做完，加油！
+你> 记住我叫小张，常住上海
+  ⎿ #1 t-llm-ok [noop] · llm#1 1210ms <tool_call>{"name":"remember","arguments":{"key":"name","value":"小张"}}</tool_call> <tool_call>{"name":"remember","argume
+  ⎿ #2 t-tools
+  ⎿ #3 t-tools-done · tool remember({"key":"name","value_len":2}) ok 0ms → 已记住 name（2 字） · tool remember({"key":"city","value_len":2}) ok 0ms → 已记住 city（2 字）
+  ⎿ #4 t-llm-ok [noop] · llm#2 443ms <final>好的小张，已经记住啦：你叫小张，常住上海。之后你说天气、通勤之类的话题，我就默认按上海来考虑。</final>
+  ⎿ #5 t-final · answer(final) 1656ms
+助手> 好的小张，已经记住啦：你叫小张，常住上海。之后你说天气、通勤之类的话题，我就默认按上海来考虑。
+你> 那我住哪
+  ⎿ #1 t-llm-ok [noop] · llm#1 815ms <final>你常住上海呀，小张——这是我刚记下的长期信息。</final>
+  ⎿ #2 t-final · answer(final) 817ms
+助手> 你常住上海呀，小张——这是我刚记下的长期信息。
+
+━━ 窗口 2（同一用户，另一个 session）━━
+mini-agent · model=deepseek-flash · user=A · session=w2 · 文本协议
+输入 /exit 退出，/sessions 列出本用户的会话
+你> 我的待办清单里有什么
+助手> 你的待办清单目前是空的，还没有任何事项。需要我帮你添加几条吗？
+你> 我叫什么、住哪
+助手> 你叫小张，住在上海。
+
+━━ 次日早上的复盘（把「昨天」= 刚才这两个窗口）━━
+review · model=deepseek-flash · data=/tmp/mini-agent-demo.3ycK
+review A 2026-09-16 Asia/Shanghai → ok（attempts=1, coverage=full, entries_written=4）
+昨天没收尾：待办里的周报还挂在清单上，昨天只划掉了买牛奶，记得找时间把周报写完。
+delivered_to: w1
+
+━━ 盘上产物 ━━
+会话：      /tmp/mini-agent-demo.3ycK/sessions/A/w1.json  w2.json
+长期记忆：  /tmp/mini-agent-demo.3ycK/memory/A.memory.json
+转写(Raw)： /tmp/mini-agent-demo.3ycK/transcripts/A/*.jsonl
+复盘日志：  /tmp/mini-agent-demo.3ycK/reviews/A/2026-09-16.json
+trace：     trace/w1.jsonl（一次状态转移一行）
+
+验证不变量：python3 evals/judge.py trace/   # 或 npm test

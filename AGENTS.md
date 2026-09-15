@@ -31,6 +31,7 @@
 | `npm run test:live` | 真实模型 5 个 smoke 场景，需要 `.env` 里有 key；trace 写到 `evals/live-trace/` |
 | `bash scripts/gate.sh <label>` | 一键门禁：typecheck → test → contracts:check → live，每步输出落 `docs/evidence/<label>/`，首行环境、末行 `exit N (expected M)`；无 key 时 live 写 SKIP（skipped ≠ 通过） |
 | `npm run chat -- --user A --session w1` | CLI；加 `--native-tools` 切原生 function calling，`--quiet` 关 trace 回显，`--data <dir>` 换存储根目录 |
+| `npm run demo` | 零操作演示：固定几句跑完 loop / 工具 / 双窗口 / 记忆 / 次日复盘，数据在临时目录，要 key |
 | `npm run review -- --user A [--date] [--tz] [--deliver <session>] [--fake ok\|no_chat\|partial_read] [--data <dir>] [--json]` | 每日复盘 CLI（#19 ⑨⑩）：三态 journal + 打印 brief；退出码 ok/no_chat 0、partial_read 3、配置错 1；`--fake` 无 key 可跑 |
 
 ## 地图

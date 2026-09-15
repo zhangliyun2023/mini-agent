@@ -4,6 +4,38 @@
 
 > **只想看最小 loop？** 三个文件够了：`contracts/turn.machine.ts`（循环的状态表，5 状态 × 6 事件）→ `src/runtime/agent.ts`（每步先 `interpret` 再执行副作用）→ `src/protocol/parser.ts`（模型输出怎么变成事件）。其余都是围绕这条 loop 的证明：契约、不变量、生成器、探索、证据。
 
+## 5 分钟体验（不用自己打字）
+
+```bash
+npm ci && cp .env.example .env     # 填一个 OpenAI-compatible 的 key
+npm run demo
+```
+
+固定几句话跑完 loop / 工具 / 两个窗口隔离 / 长期记忆 / 次日复盘，右侧实时回显每一次状态转移，数据落在临时目录。一次真实输出（deepseek-flash，全文在 `docs/evidence/demo/`）：
+
+```
+你> 帮我算 (137*29+1234)/7 保留两位
+  ⎿ #1 t-llm-ok [noop] · llm#1 1086ms <think>需要精确计算</think><tool_call>{"name":"calculator",…}
+  ⎿ #3 t-tools-done · tool calculator({"expression":"(137*29+1234)/7"}) ok 0ms → 743.8571428571429
+  ⎿ #5 t-final · answer(final)
+助手> (137×29+1234)/7 ≈ 743.857142857…，保留两位小数为 743.86。
+你> 记两条待办：买牛奶、写周报            → 一步两个 todo 调用
+你> 第一条做完了，把清单给我              → 带工具的追问，作用在同一清单
+你> 记住我叫小张，常住上海                → remember 写用户级记忆（trace 里只见长度）
+你> 那我住哪                              → 纯对话追问：你常住上海呀，小张
+
+━━ 窗口 2（同一用户，另一个 session）━━
+你> 我的待办清单里有什么                  → 清单是空的（session 隔离）
+你> 我叫什么、住哪                        → 你叫小张，住在上海（记忆跨窗口）
+
+━━ 次日早上的复盘 ━━
+review A 2026-09-16 Asia/Shanghai → ok（attempts=1, coverage=full, entries_written=4）
+昨天没收尾：待办里的周报还挂在清单上，昨天只划掉了买牛奶，记得找时间把周报写完。
+delivered_to: w1
+```
+
+没有 key 也能看：`npm test`（250 条，假模型）、`npm run review -- --user A --fake ok`（复盘三态）、`python3 evals/judge.py evals/live-trace`（对仓库里已提交的真实模型转移记录跑不变量）。
+
 ## 运行
 
 ```bash
