@@ -18,6 +18,7 @@
 - **mock 搜索按整串子串匹配，模型措辞「今天」vs 语料「今日」就命中不了** — runtime 参照仓 · issue #3 · 2026-09-15 · 待修（仓库内；skill 不改）
 - **工具坑：Storybook 端口被占静默换端口；worktree 的 `.git` 是文件需固定 `TEST_ROOT`；`kill $SB` 留下 dev server** — Web 参照仓 · NEXT_STEPS · 2026-09-14 · 已进 1.1.0 `adopt-ai-era` 3.5
 - **探索器抓不到「unknown 行谎报成 allowed」**：allowed 自环不违反通用不变量，只有契约层（盘上 JSON == toContract、declared_unknown 断言）红——变异验证必须同时看契约层与探索层 — runtime 参照仓 · PR #6 B3 · 2026-09-15 · 待进 model-e2e「变异」段
+- **「条数单一事实源」闸把并行 agent 逼去绕闸**：四个并行票里三个把新测试放到 `test/unit` 之外的目录躲开条数对账（因为派工禁碰 TEST_REPORT），第四个索性改了条数表——同一个闸、两种绕法。修法：守文档测试按 `test/**` 全量计数，且派工时明说「条数表允许改、报告正文不许改」 — runtime 参照仓 · #10–#13 · 2026-09-15 · 待进 agents-md / adopt-ai-era 3.5
 
 
 ## B. 成功策略
@@ -28,6 +29,8 @@
 - **模型层随机探索几秒红出 10 个 guard 洞，先于真实浏览器探索** — Web 参照仓 · #17 · 2026-09-13 · 已进 1.1.0 `model-e2e`
 - **16 票按文件不相交分组、四波 worktree 并行、每票独立报告文件** — Web 参照仓 · NEXT_STEPS · 2026-09-14 · 已进 1.1.0 `adopt-ai-era` 3.5
 - **先当一次新用户 + 旅程预算 json，让 E2E 对账真实访客操作数** — Web 参照仓 · 铁律 11 · 2026-09-14 · 已进 1.1.0 `adopt-ai-era` 2.5 / `machine-contract`「旅程预算」
+- **并行四票 rebase 冲突只在两处**（`agent.ts` 组 context 三行、`trace.ts` 的 Effect 联合类型），都是「每票各加一种 effect / 一个字段」的同型冲突；合并时按「都保留」解即可。手工解合并有一次把类定义截断（typecheck 抓到）——rebase 后必须重跑 typecheck 再推 — runtime 参照仓 · #15–#18 · 2026-09-15 · 待进 adopt-ai-era 3.5
+
 
 ## C. 提案历史
 
@@ -43,3 +46,4 @@
 - **1.2.0：只加维护基础设施（本文件、`evals/PROBES.md`、`ai-era` 维护节），未改任何执行规则，因此不需要探针；三个探针定义了但未跑** — ai-era-skills · 2026-09-15
 - adopt-ai-era-runtime 1.2.0 + issue #5 拍板：runtime 参照仓 PR #6 十片全绿（113 单测、契约 0 漂移、live 5/5 一次）；随机探索三张表零违反、抠行探针 ddmin 缩到 1 步；变异只在契约层红 — 2026-09-15 · 第一次完整消费 A1–C2 切片，未跑探针
 - runtime 参照仓 PR #9（移植 epic 分支三提交）：第五条不变量 effectsDeclared 让「表 · 代码 · trace」三者的第三条边可执行；离线 oracle 一跑就点名了 14 个旧格式文件——证据文件也要有版本 — runtime 参照仓 · #8 · 2026-09-15 · 125 单测、live 5/5 afterAll 0 违反
+- runtime 参照仓 v0.4：四票并行约 10 分钟各自完成、审阅 + rebase + 合并约 40 分钟；171 单测、live 5/5、judge.py 54 轮全 passed — 2026-09-15
