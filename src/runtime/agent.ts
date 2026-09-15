@@ -105,7 +105,8 @@ export function createAgent(o: AgentOptions) {
       pendingEffects.push({ kind: "compact", ...r });
     }
 
-    const systemPrompt = buildSystemPrompt(tools.specs(), renderMemory(memory.load(userId)));
+    const memoryBlock = renderMemory(memory.load(userId), ctxOpts.memoryMaxChars);
+    const systemPrompt = buildSystemPrompt(tools.specs(), memoryBlock.block);
     const working: ChatMessage[] = [{ role: "user", content: input }];
     const toolCtx = { sessionState: session.state, userId, sessionId };
     let pendingCalls: ParsedToolCall[] = [];

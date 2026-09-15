@@ -183,3 +183,22 @@ describe("trace：以转移为单位，序列对答案卷", () => {
     expect(new Set(ids).size).toBe(4);
   });
 });
+
+describe("用户级 memory：上限与截断（#12）", () => {
+  it("写入 60 条记忆后，模型收到的 system prompt 记忆块只含上限（默认 1200 字符）内最新的条目，最老的被截掉", async () => {
+    const memory = new MemoryUserMemoryStore();
+    for (let i = 0; i < 60; i++) memory.set("A", `k${String(i).padStart(2, "0")}`, `值${String(i).padStart(2, "0")}`.padEnd(40, "。"));
+    const llm = new FakeLLM(["<final>ok</final>"]);
+    await createAgent({ llm, memory }).run({ userId: "A", sessionId: "w1", input: "hi" });
+    const system = llm.calls[0][0].content;
+    const block = /<memory>[\s\S]*<\/memory>/.exec(system)?.[0] ?? "";
+    expect(block.length).toBeGreaterThan(0);
+    expect(block.length).toBeLessThanOrEqual(1200);
+    expect(block).toContain("k59: 值59"); // 最新的在
+    expect(block).not.toContain("k00: 值00"); // 最老的被截
+    const kept = block.match(/^- k\d\d: /gm)!.length;
+    expect(kept).toBeLessThan(60);
+    // 保留的是连续的最新 kept 条（按写入顺序）
+    for (let i = 60 - kept; i < 60; i++) expect(block).toContain(`k${String(i).padStart(2, "0")}: `);
+  });
+});

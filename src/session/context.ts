@@ -13,12 +13,19 @@ export interface ContextOptions {
   maxHistoryChars: number;
   /** 压缩时保留最近多少条消息原文 */
   keepRecentMessages: number;
+  /**
+   * system prompt 里记忆块的字符上限（与 maxHistoryChars 同一把尺子）。超限按写入顺序保留最新的条目，截断事实记 trace。
+   * 选字符数而不是条目数：预算单位本来就是字符，几条长 value 就能撑爆条目数上限却仍「合规」；字符上限直接约束的就是占用。
+   * 默认 = maxHistoryChars 的 10%。
+   */
+  memoryMaxChars: number;
 }
 
 export const DEFAULT_CONTEXT: ContextOptions = {
   maxHistoryMessages: 40,
   maxHistoryChars: 12_000,
   keepRecentMessages: 12,
+  memoryMaxChars: 1_200,
 };
 
 const THINK_BLOCK = /<think>[\s\S]*?<\/think>\s*/g;

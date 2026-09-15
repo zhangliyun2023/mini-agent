@@ -39,8 +39,34 @@ export class FileUserMemoryStore implements UserMemoryStore {
   }
 }
 
-export function renderMemory(mem: Record<string, string>): string {
-  const entries = Object.entries(mem);
-  if (entries.length === 0) return "";
-  return `<memory>\n${entries.map(([k, v]) => `- ${k}: ${v}`).join("\n")}\n</memory>`;
+export interface RenderedMemory {
+  /** 放进 system prompt 的块；没有记忆时为空串 */
+  block: string;
+  /** 超限被截时才有：总条数与实际保留条数 */
+  truncated?: { total: number; kept: number };
+}
+
+const MEMORY_OPEN = "<memory>\n";
+const MEMORY_CLOSE = "\n</memory>";
+
+/**
+ * 渲染记忆块。limit 是整块（含 <memory> 标签）的字符上限：超限时按写入顺序从最新一条往回收，装不下的最老条目丢掉。
+ * 写入顺序 = 对象插入序（内存实现与文件实现读回 JSON 都保序；只有整数样式的 key 会被 JS 排到最前，remember 的 key 不这么起）。
+ * 不做时间衰减、不做检索（见 docs/NEXT_STEPS.md）。
+ */
+export function renderMemory(mem: Record<string, string>, limit = Infinity): RenderedMemory {
+  const lines = Object.entries(mem).map(([k, v]) => `- ${k}: ${v}`);
+  if (lines.length === 0) return { block: "" };
+  const wrap = MEMORY_OPEN.length + MEMORY_CLOSE.length;
+  let used = wrap;
+  let start = lines.length;
+  while (start > 0) {
+    const next = lines[start - 1].length + (start < lines.length ? 1 : 0); // 换行符
+    if (used + next > limit) break;
+    used += next;
+    start -= 1;
+  }
+  const kept = lines.slice(start);
+  const block = kept.length ? `${MEMORY_OPEN}${kept.join("\n")}${MEMORY_CLOSE}` : "";
+  return start === 0 ? { block } : { block, truncated: { total: lines.length, kept: kept.length } };
 }
