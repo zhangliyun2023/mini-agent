@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "每日复盘 = 一次记忆整合：状态表即流程",
+    "locale": "zh-CN",
+    "viewBox": [
+      1030,
+      600
+    ],
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "main",
+        "label": "主路径：调度到交付",
+        "focus": [
+          "scheduled",
+          "collecting",
+          "consolidating",
+          "presenting",
+          "delivered"
+        ],
+        "note": "按计划日期与任务时区取昨天的转写，整合成记忆条目，过呈现门槛，只发“今天为什么重要”的事。"
+      },
+      {
+        "id": "exits",
+        "label": "三态出口",
+        "focus": [
+          "collecting",
+          "presenting",
+          "skipped_no_chat",
+          "failed_partial"
+        ],
+        "note": "确认没聊、读了一半、读不出来三种情况落到不同终态，退出码也分开；partial 不得冒充 no_chat。"
+      },
+      {
+        "id": "replay",
+        "label": "幂等重放",
+        "focus": [
+          "scheduled",
+          "delivered",
+          "skipped_no_chat",
+          "failed_partial"
+        ],
+        "note": "幂等键 userId+date：重跑直接重放上次的终态，不再调模型；同 key 不同值的记忆条目标 conflict，不覆盖。"
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "复盘阶段"
+    },
+    {
+      "id": "terminal",
+      "label": "终态（退出码分开）"
+    }
+  ],
+  "states": [
+    {
+      "id": "scheduled",
+      "type": "start",
+      "label": "scheduled",
+      "sublabel": "计划日期 + 时区",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "幂等键 user+date"
+    },
+    {
+      "id": "collecting",
+      "type": "active",
+      "label": "collecting",
+      "sublabel": "读昨天的转写",
+      "lane": "main",
+      "col": 1,
+      "step": "02",
+      "tag": "full / partial / none"
+    },
+    {
+      "id": "consolidating",
+      "type": "active",
+      "label": "consolidating",
+      "sublabel": "生成带来源的条目",
+      "lane": "main",
+      "col": 2,
+      "step": "03",
+      "tag": "模型 · 规则兜底"
+    },
+    {
+      "id": "presenting",
+      "type": "decision",
+      "label": "presenting",
+      "sublabel": "呈现门槛",
+      "lane": "main",
+      "col": 3,
+      "step": "04",
+      "tag": "why_today + source"
+    },
+    {
+      "id": "delivered",
+      "type": "success",
+      "label": "delivered",
+      "sublabel": "journal + 可选投递",
+      "lane": "main",
+      "col": 4,
+      "step": "05",
+      "tag": "终态"
+    },
+    {
+      "id": "skipped_no_chat",
+      "type": "neutral",
+      "label": "skipped_no_chat",
+      "sublabel": "确认昨天没聊",
+      "lane": "terminal",
+      "col": 0,
+      "tag": "退出码 0",
+      "yOffset": -60
+    },
+    {
+      "id": "failed_partial",
+      "type": "failure",
+      "label": "failed_partial",
+      "sublabel": "读了一半或读不出",
+      "lane": "terminal",
+      "col": 1,
+      "tag": "退出码 3",
+      "yOffset": -60
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t-replay",
+      "from": "scheduled",
+      "to": "delivered",
+      "label": "幂等重放",
+      "variant": "dashed",
+      "route": "top-channel"
+    },
+    {
+      "id": "t-none",
+      "from": "collecting",
+      "to": "skipped_no_chat",
+      "label": "coverage none",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          248,
+          262
+        ],
+        [
+          402,
+          262
+        ]
+      ],
+      "labelAt": [
+        325,
+        278
+      ]
+    },
+    {
+      "id": "t-unreadable",
+      "from": "collecting",
+      "to": "failed_partial",
+      "label": "读不出",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          248,
+          240
+        ],
+        [
+          556,
+          240
+        ]
+      ],
+      "labelAt": [
+        470,
+        228
+      ]
+    },
+    {
+      "id": "t-partial",
+      "from": "presenting",
+      "to": "failed_partial",
+      "label": "coverage partial",
+      "variant": "security",
+      "route": "straight",
+      "labelAt": [
+        556,
+        202
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "两种产物",
+      "items": [
+        "记忆条目：stated / inferred，带 source；冲突标 conflict 不覆盖",
+        "brief：每条要有 why_today，没有就不发"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "边界",
+      "items": [
+        "“昨天”按任务时区与计划日期算，不按执行时刻",
+        "对话里说的收件人只是材料，接收人由参数决定"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "落点",
+      "items": [
+        "contracts/review.machine.ts 就是这张图",
+        "src/review/*，npm run review；P0 不变量各一红一绿"
+      ]
+    }
+  ]
+}

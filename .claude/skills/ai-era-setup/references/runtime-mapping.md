@@ -13,18 +13,18 @@
 | 夹具 `fixture` / 驱动 `drive` | fixture = 脚本化假依赖（FakeLLM 的脚本名）；drive = 触发事件的输入 | `model-e2e` |
 | 组件层 / Storybook；布局 / 主题 oracle | 不适用，报告里写明 | `model-e2e` |
 | `setup.mjs` 脚手架 | 换成移植 [`machine.example.ts`](machine.example.ts) 的四接口；已有 vitest/pytest 就用它 | `ai-era-setup` 第 5 步 |
-| 生产 unknown「只记录、动作照常」 | **闸的语义**：unknown 不执行副作用，本单元以 `error` 终态结束并记 trace；测试模式 unknown = 红 | 问题库 Q8 |
+| 生产 unknown“只记录、动作照常” | **闸的语义**：unknown 不执行副作用，本单元以 `error` 终态结束并记 trace；测试模式 unknown = 红 | 问题库 Q8 |
 | 三处对齐（界面 · 接口 · 磁盘） | **返回值 · 盘上持久化 · trace** | 标准 §9 |
-| 第二层（AI 产出）oracle | 若仓库本身调模型：真实模型几条 smoke，断行为不断措辞；报告写「少量 smoke」 | 标准 §16 |
+| 第二层（AI 产出）oracle | 若仓库本身调模型：真实模型几条 smoke，断行为不断措辞；报告写“少量 smoke” | 标准 §16 |
 | 文档四件套 + PLAYBOOK + GLOSSARY | 收窄为 `AGENTS.md` + `docs/ARCHITECTURE.md`（含机器清单）+ `docs/TEST_REPORT.md` + `docs/NEXT_STEPS.md`；词汇表进规格 | `ai-era-setup` 第 6 步 |
 
 ## 审计时追加给子代理的一段
 
-「本仓无 UI；§7A / §10 判『有无对应物』（工具/能力清单对账、输出格式）；§8 的 traceId/requestId 按换算表判。」
+“本仓无 UI；§7A / §10 判‘有无对应物’（工具/能力清单对账、输出格式）；§8 的 traceId/requestId 按换算表判。”
 
 ## 建表 checklist 的 runtime 补充
 
-在 `machine-contract`「建表 checklist」六类之上，每张表再过一遍（不适用写「不适用」）：
+在 `machine-contract`“建表 checklist”六类之上，每张表再过一遍（不适用写“不适用”）：
 
 - busy 时又来一次：轮进行中新输入 / 上一轮异步工具到达
 - 外部调用失败后的重试：超时 / 限流 / 5xx 各一个等价类；重试用尽是独立事件

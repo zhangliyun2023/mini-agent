@@ -14,15 +14,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## 这个产品是什么（一句话）
 
-**网页版 4399，但每个游戏都能被任何人一句话接着改。** 匿名打开就能玩；登录后拿到别人的链接，用一句话让 AI 改出自己的版本并发布，链接一直活着、来源可追溯。免费、不做积分/付费；第一批用户是学生朋友圈。用户只做一件事——打字；可靠性靠「候选沙箱试运行」流水线（`docs/product/SPEC-sandbox-verify.md`），不靠缩小 AI 可改范围。完整定位见 `docs/product/PRD.md` 1.1。
+**网页版 4399，但每个游戏都能被任何人一句话接着改。** 匿名打开就能玩；登录后拿到别人的链接，用一句话让 AI 改出自己的版本并发布，链接一直活着、来源可追溯。免费、不做积分/付费；第一批用户是学生朋友圈。用户只做一件事——打字；可靠性靠“候选沙箱试运行”流水线（`docs/product/SPEC-sandbox-verify.md`），不靠缩小 AI 可改范围。完整定位见 `docs/product/PRD.md` 1.1。
 
 ## 铁律（改行为前必读）
 
 1. **机器表是唯一事实源。** 每个有状态的功能都有一张 `contracts/<feature>.machine.mjs`（statechart 的表格化）。改任何行为：**先改表 → `npm run contracts:sync` → 再动代码**。`*.contract.json`、`*.scenarios.json` 是生成物，不手改；`npm run contracts:check` 漂移即红。
 2. **闸 / 影子 / 旅程 三种接法，不要混。** 闸：副作用必须经 `dispatch`，blocked 就不发请求（`run`、`editor`、`login`、`publish`）。影子：只观察、只记录、不拦（`runtime`、`manual`、`members`、`workspace`、`admin`）。旅程：跨页一台机器，状态与 `trace_id` 经 `sessionStorage`（`fork`、`invite`）。新页面先影子再升闸。
-3. **未列出的 (状态, 事件) = unknown，永远可观测。** 测试模式 unknown = 测试失败；生产只记录不拦，进管理员页「未建模转移」队列。发现 unknown 的处理是**补表**，不是删断言。
+3. **未列出的 (状态, 事件) = unknown，永远可观测。** 测试模式 unknown = 测试失败；生产只记录不拦，进管理员页“未建模转移”队列。发现 unknown 的处理是**补表**，不是删断言。
 4. **一次用户意图一个 `trace_id`，一次 HTTP 一个 `request_id`。** 两个 id 都要落到 `runs / audit / events` 行、worker `TRACE` 日志、失败 toast 与候选面板。新意图 = 离开初始状态 或 行上标 `effects.intent`。
-5. **对答案只看两样：答案卷 + 镜像组件。** `contracts/journeys.json` 是期望的转移序列；`node scripts/machine-check.mjs --db <sqlite>` 判分；页面上 `[data-machine-state] [data-machine=<feature>]` 的 `data-state` 就是「UI 说机器在哪」。**只有 `public/platform/machine-state.mjs` 这一处绑定需要看源码核对**（Storybook「状态机/镜像组件」story），其余一律看答案卷。
+5. **对答案只看两样：答案卷 + 镜像组件。** `contracts/journeys.json` 是期望的转移序列；`node scripts/machine-check.mjs --db <sqlite>` 判分；页面上 `[data-machine-state] [data-machine=<feature>]` 的 `data-state` 就是“UI 说机器在哪”。**只有 `public/platform/machine-state.mjs` 这一处绑定需要看源码核对**（Storybook“状态机/镜像组件”story），其余一律看答案卷。
 6. **先写红的测试，红必须真红过。** 断言打在用户可见契约上：可见文案、焦点、请求次数、Cookie、URL、DOMRect、computed style、接口返回、DB 行、worker 日志。**不断类名、不断隐藏元素、不断中间函数。** 例外（纯文档、纯重命名、探针脚本）要显式说出来。
 7. **报告口径分层，SKIPPED ≠ 通过，harness 自测 ≠ 模型结果。** 已验证（Next E2E）/ 已验证（Node/HTTP）/ demo / harness 自测 / not_run / skipped 一词一义。少量 smoke 不写成可靠率。
 8. **候选不改草稿，应用不发布，发布只移指针。** 坏的候选（沙箱加载或点击报错）永远不以 ready 展示；无浏览器如实标 skipped，不假装通过。
@@ -62,12 +62,12 @@ bash scripts/verify.sh v0.<n>                         # 一次跑完上面全部
 ## 禁止事项
 
 - 手改 `contracts/*.contract.json` / `*.scenarios.json`；跳过 `contracts:sync`。
-- 为了变绿放宽 oracle（把文案断言改成「可见」、把精确序列改成子序列、把 unknown 从断言里剔掉）。
-- 用 LLM 生成测试用例；用 LLM 判定「这个转移应该 allowed」——那是人拍板后进表。
+- 为了变绿放宽 oracle（把文案断言改成“可见”、把精确序列改成子序列、把 unknown 从断言里剔掉）。
+- 用 LLM 生成测试用例；用 LLM 判定“这个转移应该 allowed”——那是人拍板后进表。
 - 生产拦截 unknown。
 - 把 `demoProposal` 的预设改名成真实 Agent；把 `test:ai-behavior:selftest`（mock）写成模型结果。
 - 提交 `.env`、`.data`、`next-env.d.ts` 的构建改动、`docs/evidence/next-e2e/failures/`。
-- 在没跑过基线对照的情况下写「已知基线失败」。
+- 在没跑过基线对照的情况下写“已知基线失败”。
 - 用 `git add -A`；用 Playwright 全量 E2E 当日常验证入口。
 
 ## 提交纪律
@@ -82,7 +82,7 @@ bash scripts/verify.sh v0.<n>                         # 一次跑完上面全部
 | 已验证（Node/HTTP） | `node --test` 单测或离线 HTTP 集成 |
 | demo | `AI_PROVIDER=demo` 预设修改，不是真实 AI |
 | harness 自测 | mock 供应商走真实适配器/worker/浏览器；证明链路，不证明模型 |
-| 真实模型 | `RUN_LIVE_AI=1`，少量 smoke，费用记「未知」除非供应商回报 |
+| 真实模型 | `RUN_LIVE_AI=1`，少量 smoke，费用记“未知”除非供应商回报 |
 | skipped / not_observed / unknown | 没有条件执行 / 该机器没有观察到转移 / 状态表没列的组合——三者都不是通过 |
 
 ## Agent skills / tracker / 标签
@@ -97,8 +97,8 @@ bash scripts/verify.sh v0.<n>                         # 一次跑完上面全部
 | 改用户可见行为 | 先改 `contracts/*.machine.*` | `machine-contract` |
 | 加日志 / 打点 / 要回放一次运行 | — | `trace-transitions` |
 | 写测试 / 复现一次失败 | — | `model-e2e` + `tdd` |
-| 跑完一次流程问「对不对」 | — | `answer-key` |
-| 写报告 / 要说「已验证」 | — | `honest-evidence` |
+| 跑完一次流程问“对不对” | — | `answer-key` |
+| 写报告 / 要说“已验证” | — | `honest-evidence` |
 | Electron 改动 | — | `electron-real-machine-verify` |
 | 审 diff | — | `code-review` |
 | 改 AGENTS.md / skill 文档 | — | `writing-for-agents` |

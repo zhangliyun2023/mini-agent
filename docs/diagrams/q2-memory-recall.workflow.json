@@ -1,0 +1,230 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "记忆召回：召回三样，先问，再改",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "main",
+        "label": "主路径：重复即反馈",
+        "focus": [
+          "repeat",
+          "detect",
+          "recall",
+          "veto",
+          "ask",
+          "correct",
+          "answer"
+        ],
+        "note": "用户重复问，说明上次的建议大概率没解决问题。召回的不是“他问过什么”，而是问题、上次回答、之后反馈三样，先问“上次试了吗”再答。"
+      },
+      {
+        "id": "boundary",
+        "label": "边界：否决权与低置信度",
+        "focus": [
+          "recall",
+          "veto",
+          "ask"
+        ],
+        "note": "用户说过“不对”“别再提”的记忆再提就是打脸；随口一提的低置信度记忆不主动引用。用户的否决权高于“我记得”。"
+      },
+      {
+        "id": "writeback",
+        "label": "写回：纠正即更新",
+        "focus": [
+          "correct",
+          "update",
+          "answer"
+        ],
+        "note": "用户当场纠正的内容覆盖旧记忆；同 key 不同值先标冲突不覆盖（#19）。"
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "user",
+      "label": "用户"
+    },
+    {
+      "id": "agent",
+      "label": "Agent"
+    },
+    {
+      "id": "memory",
+      "label": "用户级记忆"
+    }
+  ],
+  "groups": [
+    {
+      "id": "recall-box",
+      "label": "召回与边界",
+      "lane": "memory",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    }
+  ],
+  "mainPath": [
+    "repeat",
+    "detect",
+    "recall",
+    "veto",
+    "ask",
+    "correct",
+    "answer"
+  ],
+  "nodes": [
+    {
+      "id": "repeat",
+      "lane": "user",
+      "col": 0,
+      "type": "external",
+      "label": "重复提问",
+      "sublabel": "半个月前问过同一件事",
+      "width": 132
+    },
+    {
+      "id": "correct",
+      "lane": "user",
+      "col": 4,
+      "type": "external",
+      "label": "确认或纠正",
+      "sublabel": "“试了，没用”/“记错了”",
+      "width": 132
+    },
+    {
+      "id": "detect",
+      "lane": "agent",
+      "col": 1,
+      "type": "backend",
+      "label": "识别为重复",
+      "sublabel": "重复本身是反馈",
+      "tag": "不给一样的回复",
+      "width": 132
+    },
+    {
+      "id": "ask",
+      "lane": "agent",
+      "col": 3,
+      "type": "backend",
+      "label": "先问一句",
+      "sublabel": "“上次说的 X 你试了吗”",
+      "tag": "校验记忆",
+      "width": 132
+    },
+    {
+      "id": "answer",
+      "lane": "agent",
+      "col": 5,
+      "type": "backend",
+      "label": "给新回答",
+      "sublabel": "基于反馈，不重复上次",
+      "width": 132
+    },
+    {
+      "id": "recall",
+      "lane": "memory",
+      "col": 2,
+      "type": "database",
+      "label": "召回三样",
+      "sublabel": "问题 · 上次回答 · 之后反馈",
+      "width": 132
+    },
+    {
+      "id": "veto",
+      "lane": "memory",
+      "col": 3,
+      "type": "security",
+      "label": "过否决权",
+      "sublabel": "“不对”“别再提”→ 不引用",
+      "tag": "低置信度不主动提",
+      "width": 132
+    },
+    {
+      "id": "update",
+      "lane": "memory",
+      "col": 4,
+      "type": "database",
+      "label": "写回",
+      "sublabel": "纠正覆盖 · 冲突先标不覆盖",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-repeat",
+      "from": "repeat",
+      "to": "detect",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-detect-recall",
+      "from": "detect",
+      "to": "recall",
+      "label": "取三样",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-recall-veto",
+      "from": "recall",
+      "to": "veto",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-veto-ask",
+      "from": "veto",
+      "to": "ask",
+      "label": "通过的才引用",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-ask-correct",
+      "from": "ask",
+      "to": "correct",
+      "label": "用户当场纠正",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-correct-answer",
+      "from": "correct",
+      "to": "answer",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-correct-update",
+      "from": "correct",
+      "to": "update",
+      "label": "纠正即更新",
+      "variant": "dashed",
+      "role": "branch"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "召回的是什么",
+      "items": [
+        "问题、我上次的回答、他之后的反馈，三样",
+        "后两样最缺：用户很少主动反馈"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "边界",
+      "items": [
+        "用户否决过的记忆不再提，否决权最高",
+        "随口一提的低置信度记忆不主动引用"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "mini-agent 现状",
+      "items": [
+        "模型显式调 remember 写入，全量注入，不检索",
+        "#19 起带 stated / inferred / conflict"
+      ]
+    }
+  ]
+}

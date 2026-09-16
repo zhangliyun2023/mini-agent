@@ -1,0 +1,286 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "首 token 5–10 秒压到 2 秒：时间花在哪、杠杆切在哪",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "critical-path",
+        "label": "关键路径：5–10 秒花在哪",
+        "focus": [
+          "upload",
+          "parse",
+          "queue",
+          "prefill",
+          "first_token",
+          "display"
+        ],
+        "note": "TTFT = 排队 + Prefill + 首段生成 + 网络回传。Prefill 是主体，长输入越长越贵。先量后端收到首片与前端显示两个时间点，别修错对象。"
+      },
+      {
+        "id": "levers",
+        "label": "三个杠杆：少发、早发、选对",
+        "focus": [
+          "less",
+          "early",
+          "pick",
+          "parse",
+          "prefill"
+        ],
+        "note": "少发减少要 prefill 的 token；早发把 prefill 挪出点击发送后的关键路径；选对让单位 token 的 prefill 更便宜。顺序就是优先级。"
+      },
+      {
+        "id": "fallback",
+        "label": "感知层：给证据，不猜结论",
+        "focus": [
+          "upload",
+          "fastpath",
+          "display"
+        ],
+        "note": "快路径与主模型并行启动，展示真实状态与定位到的原文；它不算主模型 TTFT，也不宣布结论。"
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "client",
+      "label": "客户端 / 应用后端"
+    },
+    {
+      "id": "provider",
+      "label": "模型侧（TTFT 主体）"
+    },
+    {
+      "id": "levers",
+      "label": "三个杠杆，按优先级"
+    }
+  ],
+  "groups": [
+    {
+      "id": "ttft",
+      "label": "物理 TTFT",
+      "lane": "provider",
+      "fromCol": 2,
+      "toCol": 4,
+      "variant": "emphasis"
+    }
+  ],
+  "mainPath": [
+    "upload",
+    "parse",
+    "queue",
+    "prefill",
+    "first_token",
+    "display"
+  ],
+  "nodes": [
+    {
+      "id": "upload",
+      "lane": "client",
+      "col": 0,
+      "type": "external",
+      "label": "上传附件 · 发送",
+      "sublabel": "长文档 / 图片 + 问题",
+      "width": 132
+    },
+    {
+      "id": "fastpath",
+      "lane": "client",
+      "col": 3,
+      "type": "frontend",
+      "label": "快路径",
+      "sublabel": "真实状态 + 原文定位",
+      "tag": "不算 TTFT",
+      "width": 132
+    },
+    {
+      "id": "display",
+      "lane": "client",
+      "col": 5,
+      "type": "frontend",
+      "label": "前端显示首片",
+      "sublabel": "流式透传，勿缓冲",
+      "width": 132
+    },
+    {
+      "id": "parse",
+      "lane": "client",
+      "col": 1,
+      "type": "backend",
+      "label": "解析与编码",
+      "sublabel": "抽文本 · 切块 · 图片缩放",
+      "width": 132
+    },
+    {
+      "id": "queue",
+      "lane": "provider",
+      "col": 2,
+      "type": "cloud",
+      "label": "排队",
+      "sublabel": "并发上限 · 长短分流",
+      "width": 132
+    },
+    {
+      "id": "prefill",
+      "lane": "provider",
+      "col": 3,
+      "type": "cloud",
+      "label": "Prefill",
+      "sublabel": "读完整个 context",
+      "tag": "输入越长越贵",
+      "width": 132
+    },
+    {
+      "id": "first_token",
+      "lane": "provider",
+      "col": 4,
+      "type": "cloud",
+      "label": "首 token",
+      "sublabel": "开始生成",
+      "width": 132
+    },
+    {
+      "id": "less",
+      "lane": "levers",
+      "col": 1,
+      "type": "backend",
+      "label": "① 少发",
+      "sublabel": "上传即摄取 · 按问题选块",
+      "tag": "图片按原生分辨率",
+      "width": 132
+    },
+    {
+      "id": "early",
+      "lane": "levers",
+      "col": 2,
+      "type": "database",
+      "label": "② 早发",
+      "sublabel": "提问前预热前缀",
+      "tag": "稳定在前，问题在后",
+      "width": 132
+    },
+    {
+      "id": "pick",
+      "lane": "levers",
+      "col": 3,
+      "type": "security",
+      "label": "③ 选对",
+      "sublabel": "prefill 便宜的模型 / 路由",
+      "tag": "自部署：PD 分离",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-upload-parse",
+      "from": "upload",
+      "to": "parse",
+      "label": "附件 + 问题",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-parse-queue",
+      "from": "parse",
+      "to": "queue",
+      "label": "请求",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-queue-prefill",
+      "from": "queue",
+      "to": "prefill",
+      "variant": "emphasis",
+      "label": "调度"
+    },
+    {
+      "id": "e-prefill-token",
+      "from": "prefill",
+      "to": "first_token",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-token-display",
+      "from": "first_token",
+      "to": "display",
+      "label": "流式",
+      "variant": "emphasis",
+      "role": "return",
+      "fromSide": "right",
+      "toSide": "right",
+      "route": "outside-right"
+    },
+    {
+      "id": "e-fast",
+      "from": "upload",
+      "to": "fastpath",
+      "label": "并行，不等主模型",
+      "variant": "dashed",
+      "role": "async",
+      "route": "up-channel",
+      "fromSide": "top",
+      "toSide": "top"
+    },
+    {
+      "id": "e-fast-display",
+      "from": "fastpath",
+      "to": "display",
+      "label": "证据先到",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "e-less",
+      "from": "less",
+      "to": "parse",
+      "label": "只送必要的块",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "e-early",
+      "from": "early",
+      "to": "prefill",
+      "label": "提前算好，命中前缀",
+      "variant": "default",
+      "role": "branch",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "e-pick",
+      "from": "pick",
+      "to": "prefill",
+      "label": "单位 token 更快",
+      "variant": "default",
+      "role": "branch"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "两个目标，分开算",
+      "items": [
+        "主模型物理 TTFT ≤ 2 秒，不等于“用户 2 秒内得到有用反馈”",
+        "先量后端收到首片 vs 前端显示两个时间点；差距大就先修流式透传，不必换模型"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "预热的硬边界（可核）",
+      "items": [
+        "`max_tokens: 0` 只做 prefill，按缓存写入计费：5 分钟 TTL 1.25×，1 小时 TTL 2×",
+        "最短前缀按模型 512–4096 token，不够会静默不缓存；读命中刷新计时；与 stream、结构化输出、强制 tool_choice、Batches 互斥"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "验收与不承诺",
+      "items": [
+        "P95 不是平均；冷请求、预热首轮、复用分开测：90% 命中 2 秒 + 10% 未命中 5 秒，P95 仍不达标",
+        "全新超长、必须全量、固定大模型、无提前时间：只承诺 2 秒内有用信息，不承诺首 token"
+      ]
+    }
+  ]
+}

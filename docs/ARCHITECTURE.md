@@ -4,7 +4,7 @@
 
 ## 运行单元
 
-一次 `agent.run({userId, sessionId, input})` = **一轮（turn）** = 一个 `trace_id`（`用户/会话/轮次`）。轮里每次模型调用、每次工具调用各一个 `request_id`（`r-` + 短随机）。返回值 `RunResult.stoppedBy` 是「代码说的终态」，trace 末条转移的 `to` 是「机器说的终态」，两者由不变量 ③ 绑定。
+一次 `agent.run({userId, sessionId, input})` = **一轮（turn）** = 一个 `trace_id`（`用户/会话/轮次`）。轮里每次模型调用、每次工具调用各一个 `request_id`（`r-` + 短随机）。返回值 `RunResult.stoppedBy` 是“代码说的终态”，trace 末条转移的 `to` 是“机器说的终态”，两者由不变量 ③ 绑定。
 
 ```
 用户输入 ──▶ run()

@@ -1,0 +1,288 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "两种工具协议，一条解析路径",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "converge",
+        "label": "两种输入收敛到同一形状",
+        "focus": [
+          "model_text",
+          "parser",
+          "model_native",
+          "adapter",
+          "parsed",
+          "gate"
+        ],
+        "note": "文本标签协议经 parser，原生 tool_calls 经 adapter，都变成同一形状的 ParsedOutput，下游只有一条路径。"
+      },
+      {
+        "id": "replay",
+        "label": "历史回放的协议约束",
+        "focus": [
+          "history",
+          "wire",
+          "model_native",
+          "model_text"
+        ],
+        "note": "原生模式 tool 消息必须紧跟 tool_calls；对不上位的降级为 user 消息。这是标注而不能重排的硬原因。"
+      }
+    ],
+    "viewBox": [
+      1100,
+      630
+    ]
+  },
+  "components": [
+    {
+      "id": "model_text",
+      "type": "cloud",
+      "label": "文本标签协议",
+      "sublabel": "qwen3-max 六种变体",
+      "pos": [
+        40,
+        160
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "tag": "<tool_call>{json}"
+    },
+    {
+      "id": "model_native",
+      "type": "cloud",
+      "label": "原生 function calling",
+      "sublabel": "deepseek-flash 5/5",
+      "pos": [
+        40,
+        400
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "tag": "tool_calls[] 字符串参数"
+    },
+    {
+      "id": "parser",
+      "type": "backend",
+      "label": "parser.ts",
+      "sublabel": "只认开标签 · 配平大括号",
+      "pos": [
+        250,
+        160
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "adapter",
+      "type": "backend",
+      "label": "fromNativeToolCalls",
+      "sublabel": "arguments 字符串 → 对象",
+      "pos": [
+        250,
+        400
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "tag": "坏 JSON 同一条回喂"
+    },
+    {
+      "id": "parsed",
+      "type": "messagebus",
+      "label": "ParsedOutput",
+      "sublabel": "同一形状",
+      "pos": [
+        460,
+        280
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "gate",
+      "type": "security",
+      "label": "转移闸",
+      "sublabel": "turn 状态表",
+      "pos": [
+        670,
+        280
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "tag": "先 interpret 再副作用"
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "工具执行",
+      "sublabel": "registry.invoke",
+      "pos": [
+        880,
+        160
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "history",
+      "type": "database",
+      "label": "会话历史",
+      "sublabel": "toolCalls ↔ toolCallId",
+      "pos": [
+        880,
+        400
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "wire",
+      "type": "backend",
+      "label": "toWireMessages",
+      "sublabel": "回放时按协议映射",
+      "pos": [
+        460,
+        520
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "tag": "对不上位 → 降级为 user"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "mini-agent runtime",
+      "wraps": [
+        "parser",
+        "adapter",
+        "parsed",
+        "gate",
+        "tools",
+        "history",
+        "wire"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "c-text",
+      "from": "model_text",
+      "to": "parser",
+      "label": "文本",
+      "variant": "emphasis"
+    },
+    {
+      "id": "c-native",
+      "from": "model_native",
+      "to": "adapter",
+      "label": "tool_calls",
+      "variant": "emphasis"
+    },
+    {
+      "id": "c-parser-parsed",
+      "from": "parser",
+      "to": "parsed",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "c-adapter-parsed",
+      "from": "adapter",
+      "to": "parsed",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "c-parsed-gate",
+      "from": "parsed",
+      "to": "gate",
+      "label": "PARSED_*",
+      "variant": "emphasis"
+    },
+    {
+      "id": "c-gate-tools",
+      "from": "gate",
+      "to": "tools",
+      "label": "allowed 才执行",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "c-gate-history",
+      "from": "gate",
+      "to": "history",
+      "label": "轮末落盘",
+      "variant": "default",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "c-history-wire",
+      "from": "history",
+      "to": "wire",
+      "label": "回放",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "id": "c-wire-native",
+      "from": "wire",
+      "to": "model_native",
+      "label": "真 tool 消息",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Claude：块",
+      "items": [
+        "tool_use / tool_result 是 content 块，input 已是对象",
+        "一条 user 可装多个结果和文字；代价是非 OpenAI 形状"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "OpenAI-compatible：数组",
+      "items": [
+        "tool_calls 字符串参数 + 必须紧跟的 role: tool",
+        "生态广、便于流式；代价：顺序硬约束、自己 parse"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "实测结论",
+      "items": [
+        "qwen3-max 原生模式仍吐过 <function=…> 文本（#4）",
+        "deepseek-flash 干净；可靠取决于厂商是否练实"
+      ]
+    }
+  ]
+}

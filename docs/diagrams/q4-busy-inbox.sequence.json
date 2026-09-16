@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "busy 时的新消息：收件箱、边界投递、会话表接晚到",
+    "locale": "zh-CN",
+    "viewBox": [
+      1080,
+      640
+    ],
+    "column_fit": "spread",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "inbox",
+        "label": "中途消息进收件箱",
+        "focus": [
+          "user",
+          "inbox",
+          "runner",
+          "tool"
+        ],
+        "note": "工具执行中用户发来“算了”，不打断工具，先入收件箱并由 runtime 打上插入时机标注。"
+      },
+      {
+        "id": "boundary",
+        "label": "边界一次投递",
+        "focus": [
+          "inbox",
+          "runner",
+          "llm"
+        ],
+        "note": "TOOLS_DONE 之后、下次模型调用之前是唯一插入点：工具结果与带标注的用户消息一起交给模型。"
+      },
+      {
+        "id": "late",
+        "label": "轮结束后的晚到事件",
+        "focus": [
+          "tool",
+          "session",
+          "runner"
+        ],
+        "note": "轮已结束的异步结果由外层会话表接：空闲开新一轮，忙则排到本轮末尾，按 request_id 对齐来源。"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "用户",
+      "sublabel": "可随时插话或按停止"
+    },
+    {
+      "id": "inbox",
+      "type": "messagebus",
+      "label": "收件箱",
+      "sublabel": "按到达顺序，不合并"
+    },
+    {
+      "id": "runner",
+      "type": "backend",
+      "label": "turn runner",
+      "sublabel": "状态表 · 闸"
+    },
+    {
+      "id": "llm",
+      "type": "backend",
+      "label": "模型",
+      "sublabel": "只在边界收到新消息"
+    },
+    {
+      "id": "tool",
+      "type": "cloud",
+      "label": "工具 weather",
+      "sublabel": "执行中不被打断"
+    },
+    {
+      "id": "session",
+      "type": "database",
+      "label": "会话表",
+      "sublabel": "idle / busy / queued"
+    }
+  ],
+  "segments": [
+    {
+      "from": 152,
+      "to": 322,
+      "label": "本轮进行中"
+    },
+    {
+      "from": 332,
+      "to": 460,
+      "label": "边界投递"
+    },
+    {
+      "from": 470,
+      "to": 580,
+      "label": "轮结束后"
+    }
+  ],
+  "messages": [
+    {
+      "id": "m-ask",
+      "from": "user",
+      "to": "runner",
+      "y": 162,
+      "label": "查天气，顺便推荐穿什么",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m-decide",
+      "from": "runner",
+      "to": "llm",
+      "y": 192,
+      "label": "决策",
+      "variant": "default"
+    },
+    {
+      "id": "m-toolcall",
+      "from": "llm",
+      "to": "runner",
+      "y": 222,
+      "label": "tool_call weather",
+      "variant": "return"
+    },
+    {
+      "id": "m-exec",
+      "from": "runner",
+      "to": "tool",
+      "y": 252,
+      "label": "执行（原子：一次转移）",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m-steer",
+      "from": "user",
+      "to": "inbox",
+      "y": 282,
+      "label": "“算了不用推荐了”→ 入箱，标注 inserted_during: executing_tools",
+      "variant": "dashed"
+    },
+    {
+      "id": "m-result",
+      "from": "tool",
+      "to": "runner",
+      "y": 312,
+      "label": "明天下雨",
+      "variant": "return"
+    },
+    {
+      "id": "m-deliver",
+      "from": "inbox",
+      "to": "runner",
+      "y": 342,
+      "label": "边界：取出全部排队消息，顺序保持",
+      "variant": "dashed"
+    },
+    {
+      "id": "m-llm2",
+      "from": "runner",
+      "to": "llm",
+      "y": 372,
+      "label": "工具结果 + 带标注的用户消息",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m-final",
+      "from": "llm",
+      "to": "runner",
+      "y": 402,
+      "label": "final：明天下雨；按你说的不推荐了",
+      "variant": "return"
+    },
+    {
+      "id": "m-answer",
+      "from": "runner",
+      "to": "user",
+      "y": 432,
+      "label": "回答",
+      "variant": "return"
+    },
+    {
+      "id": "m-late",
+      "from": "tool",
+      "to": "session",
+      "y": 484,
+      "label": "晚到的异步结果（request_id）",
+      "variant": "dashed"
+    },
+    {
+      "id": "m-next",
+      "from": "session",
+      "to": "runner",
+      "y": 516,
+      "label": "idle → 开新一轮；busy → 排到本轮末尾",
+      "variant": "dashed"
+    },
+    {
+      "id": "m-stop",
+      "from": "user",
+      "to": "runner",
+      "y": 552,
+      "label": "停止键：控制通道，边界收尾，不经模型",
+      "variant": "security"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "runner",
+      "from": 162,
+      "to": 436,
+      "type": "backend"
+    },
+    {
+      "participant": "tool",
+      "from": 248,
+      "to": 316,
+      "type": "cloud"
+    },
+    {
+      "participant": "inbox",
+      "from": 278,
+      "to": 346,
+      "type": "messagebus"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "原子单元是一次转移",
+      "items": [
+        "模型调用中、工具执行中不投递任何新东西",
+        "工具结果进 context 立即，落盘在轮末"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "标注而不是重排",
+      "items": [
+        "原生协议要求 tool 消息紧跟 tool_calls",
+        "标注由 runtime 写；多条按序投递，不合并"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "两条通道",
+      "items": [
+        "改方向：发消息排队；终止：停止键",
+        "轮结束后的事件由会话表接（#5、#19 R7）"
+      ]
+    }
+  ]
+}

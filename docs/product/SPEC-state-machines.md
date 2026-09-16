@@ -4,7 +4,7 @@
 
 ## §1 比参照强在哪
 
-参照标准写给带 UI 的 Electron 产品；这里是一个无 UI 的 Agent Runtime。强的一点：**runtime 是从零写的，循环可以直接由状态表驱动**，不存在「先影子后闸」的改造期——表就是 loop 的控制流，unknown 转移在代码里没有对应分支可走。
+参照标准写给带 UI 的 Electron 产品；这里是一个无 UI 的 Agent Runtime。强的一点：**runtime 是从零写的，循环可以直接由状态表驱动**，不存在“先影子后闸”的改造期——表就是 loop 的控制流，unknown 转移在代码里没有对应分支可走。
 
 ## §2 决定
 
@@ -18,7 +18,7 @@
 | D6 | **范围**：① 轮循环——接代码；② 会话生命周期（new → active → compacting）——只建表打标签；③ 会话并发（idle / busy 收到新输入或异步完成）——表里标 `kind:'unknown'`，不接代码 |
 | D7 | 组件层 / Storybook：**不适用**（无 UI） |
 | D8 | **unknown 处理**：测试模式 = 失败；CLI = 记 trace + 本轮 `error` 终态 |
-| D9 | **第二层 oracle**：真实模型五个 live 场景即 smoke；报告写「少量 smoke」，不写可靠率 |
+| D9 | **第二层 oracle**：真实模型五个 live 场景即 smoke；报告写“少量 smoke”，不写可靠率 |
 | D10 | **文档**：`AGENTS.md` 唯一入口（含守文档的测试）、本文件、`docs/TEST_REPORT.md`（对标 §13）、`docs/NEXT_STEPS.md`；README 只留运行方式与指路 |
 | D11 | **时间边界**：明天中午前状态表线未绿 → 砍生成器与文档，只留表 + 闸 |
 
@@ -41,11 +41,11 @@ rows:    每行显式 id（t-llm-ok 风格，定义期查重）；答案卷 / tr
 
 一次 `interpret` 一条 JSONL 记录：`{trace_id, feature, step, from, to, event, status, reason, reject_code?, transition, effects}`；`transition` = 命中的行 id（unknown 为 null）；`status` 是判定级 verdict（allowed / blocked / noop / unknown），行级 `kind` 里的 rejected 命中即 blocked。`effects` 里放该转移触发的 llm / tool / compact 调用摘要（模型、耗时、token、参数、结果预览），llm / tool 各带一个 `request_id`（`r-` + 短随机，runtime 生成）。`stop` 记录被终态转移取代。
 
-**落盘白名单与显式例外（拍板③）**：API key 不进 trace；模型输出只进 `outputPreview`（截断）；工具 `args` 按工具声明的 `redact(args)` 脱敏（`remember` 的 value 只留长度），工具结果只进 `resultPreview`（截断）。**唯一显式例外：终态转移上 `answer` 副作用带最终答案全文**——不变量 ④「答案 == 盘上历史末条 == trace 末次决策」需要逐字对齐，截断就没法对。
+**落盘白名单与显式例外（拍板③）**：API key 不进 trace；模型输出只进 `outputPreview`（截断）；工具 `args` 按工具声明的 `redact(args)` 脱敏（`remember` 的 value 只留长度），工具结果只进 `resultPreview`（截断）。**唯一显式例外：终态转移上 `answer` 副作用带最终答案全文**——不变量 ④“答案 == 盘上历史末条 == trace 末次决策”需要逐字对齐，截断就没法对。
 
 ## §5 自动 E2E
 
-`reachable('deciding')` 给出所有可达行；生成器把每条路径展开成「FakeLLM 脚本 → 期望行 id 序列（答案卷）」；测试断言 trace 里的转移序列 == 答案卷，且每条 P0 行的 `covered_by` 在盘上找得到。答案卷另落盘为 `contracts/journeys.json`，`src/machine/check.ts::checkJourney` 吃 trace 行答 passed / failed(closest) / not_observed（人、AI、测试同一个函数）。模型层另有随机探索（`src/machine/explore.ts`：种子游走 + 通用不变量 + ddmin），三张表都跑。
+`reachable('deciding')` 给出所有可达行；生成器把每条路径展开成“FakeLLM 脚本 → 期望行 id 序列（答案卷）”；测试断言 trace 里的转移序列 == 答案卷，且每条 P0 行的 `covered_by` 在盘上找得到。答案卷另落盘为 `contracts/journeys.json`，`src/machine/check.ts::checkJourney` 吃 trace 行答 passed / failed(closest) / not_observed（人、AI、测试同一个函数）。模型层另有随机探索（`src/machine/explore.ts`：种子游走 + 通用不变量 + ddmin），三张表都跑。
 
 ## §6 切片与验收
 
@@ -67,7 +67,7 @@ rows:    每行显式 id（t-llm-ok 风格，定义期查重）；答案卷 / tr
 
 | # | 分歧 | 结论 |
 |---|---|---|
-| ① | 终态吸收态 vs 禁止出边 | 保留「终态无出边」（定义期校验不放开）；turn 表终态 × 事件在 runtime 不可达，轮结束后到达的事件属外层 `session-runtime` 表。探索器的 terminal-absorbing 不变量按此口径写 |
+| ① | 终态吸收态 vs 禁止出边 | 保留“终态无出边”（定义期校验不放开）；turn 表终态 × 事件在 runtime 不可达，轮结束后到达的事件属外层 `session-runtime` 表。探索器的 terminal-absorbing 不变量按此口径写 |
 | ② | 步数上限在解析后拦 vs 工具跑完再拦 | 保留现状（工具跑完 → `TOOLS_DONE` 无 guard 兜底行 `t-tools-done-cap` → max_steps）；理由写进该行 reason |
 | ③ | answer 全文进 trace vs 白名单落盘 | 保留全文（不变量 ④ 需要），§4 列为显式例外；工具 args 加 `redact` |
 | ④ | 表外状态名 / 事件名返回 unknown 而不抛 | 接受现状（TS 类型编译期挡笔误），已接受的分歧 |

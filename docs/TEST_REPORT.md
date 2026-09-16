@@ -70,25 +70,25 @@
 | `test/unit/session-context.test.ts` | 两窗口隔离、纯对话追问、带工具追问、think 剥离、压缩（模型摘要 / 规则兜底，compact 作为副作用挂在轮首转移）、memory 跨会话与跨用户、**remember 的 value 不进 trace（redact）**、**trace 转移序列 == 行 id 答案卷**、**每个 llm / tool effect 有唯一 request_id** |
 | `test/unit/generator.test.ts`（后 10 条） | 10 条生成路径逐条真跑，trace 序列 == 答案卷（含 `[noop]` / `[blocked]`），终态 ↔ stoppedBy 对应，无 unknown；**每条路径的证据过五条 P0 不变量**（v0.3） |
 | `test/unit/journeys.test.ts`（后 5 条） | checkJourney 三态：passed（带 trace_id）/ failed（closest 实际序列）/ not_observed（空 rows、别的 trace_id、别的 feature）；alternatives 命中；unknownRows 点名残缺表下的 unknown 记录 |
-| `test/unit/invariants.test.ts` | 五条 P0 不变量各一红一绿（见 §4；⑤ 另有反向红：删表上声明 → 真实记录不合账）；④ 用 FileSessionStore + FileTraceSink 真落盘并断 checkTurnInvariants 跑的是五条；文件持久化「tmpdir 存 → 新实例读 → 接着聊」，remember 落盘可读，list 只见本用户 |
+| `test/unit/invariants.test.ts` | 五条 P0 不变量各一红一绿（见 §4；⑤ 另有反向红：删表上声明 → 真实记录不合账）；④ 用 FileSessionStore + FileTraceSink 真落盘并断 checkTurnInvariants 跑的是五条；文件持久化“tmpdir 存 → 新实例读 → 接着聊”，remember 落盘可读，list 只见本用户 |
 
-## 3. 第三层：真实模型少量 smoke（D9：写「少量 smoke」，不写可靠率）
+## 3. 第三层：真实模型少量 smoke（D9：写“少量 smoke”，不写可靠率）
 
-`test/live/live.test.ts` 5 个场景（计算、搜索 + 追问、待办跨轮 + 跨窗口、remember 跨会话、原生 function calling）+ 一条收尾：afterAll 对当次产出的 trace 跑「只凭 trace 就能判」的不变量（v0.3 起）。
+`test/live/live.test.ts` 5 个场景（计算、搜索 + 追问、待办跨轮 + 跨窗口、remember 跨会话、原生 function calling）+ 一条收尾：afterAll 对当次产出的 trace 跑“只凭 trace 就能判”的不变量（v0.3 起）。
 
 历次实跑（qwen3-max，DashScope，2026-09-15 UTC）：
 
 | 批次 | 结果 | trace | 状态 |
 |---|---|---|---|
-| 05:24 / 05:25（v0.1 审阅时两次） | **3/5，再跑 5/5** | 已删除 | #6 之前的旧格式（无 `feature` / `transition` 行 id，LLM_OK 记 allowed 而非 noop），离线检查过不了（每条都「行 id 在表里不存在」），v0.3 `git rm`；两条失败归因见下 |
+| 05:24 / 05:25（v0.1 审阅时两次） | **3/5，再跑 5/5** | 已删除 | #6 之前的旧格式（无 `feature` / `transition` 行 id，LLM_OK 记 allowed 而非 noop），离线检查过不了（每条都“行 id 在表里不存在”），v0.3 `git rm`；两条失败归因见下 |
 | 05:59（v0.2 门禁，commit 955c136） | **5/5** | `evals/live-trace/2026-09-15-05-59*` | 在库；离线过不变量 |
 | 06:14（#6 修 #3 #4 后，commit 83d078a） | **5/5** | `evals/live-trace/2026-09-15-06-14*` | 在库；离线过不变量 |
 | 2026-09-15-06-27（v0.3 门禁，本次） | **5/5** | `evals/live-trace/2026-09-15-06-27*` | 在库；afterAll 与离线检查都过（`docs/evidence/v0.3/4-live.txt`） |
 
 - **oracle 触到真实证据（v0.3）**：在库的 live 记录由 `test/unit/live-evidence.test.ts` 离线逐轮过 ① ② ③ ⑤ 与 unknown 点名：21 文件 / 27 轮 / 126 条转移，75 allowed + 51 noop，0 blocked，0 unknown，27 轮全落 done。④ 需要返回值与盘上历史，只凭 trace 判不了，不在离线检查内。`test/live/live.test.ts` 的 afterAll 对每次 live 产出跑同一检查。
 - 05:24 那次的两条失败，都不是当时改动引入的（main 同时段基线 5/5），已在 #6（`83d078a`）修复：
-  - 「搜索 + 追问」：模型搜的是「上海今天天气」（无空格），mock search 按整串子串匹配，语料标题是「上海今日天气」→ 没找到 → 模型答「无法获取」。mock 搜索的分词缺陷（issue #3，已修：中文二元组）。
-  - 「原生 function calling」：模型没走 `tool_calls`，直接输出 `<function=calculator><parameter=expression>99*99</parameter></function>`——第四种标签变体，解析器不认、当成 final。解析器别名缺口（issue #4，已修）。
+  - “搜索 + 追问”：模型搜的是“上海今天天气”（无空格），mock search 按整串子串匹配，语料标题是“上海今日天气”→ 没找到 → 模型答“无法获取”。mock 搜索的分词缺陷（issue #3，已修：中文二元组）。
+  - “原生 function calling”：模型没走 `tool_calls`，直接输出 `<function=calculator><parameter=expression>99*99</parameter></function>`——第四种标签变体，解析器不认、当成 final。解析器别名缺口（issue #4，已修）。
 - 样本仍是少量 smoke（累计 5 批 × 5 场景，其中两批的 trace 因旧格式删除），不写可靠率。
 
 另：CLI 冒烟（手工，v0.1）——把 `OPENAI_BASE_URL` 指到不可达端口跑 `npm run chat`，看到 `deciding --LLM_FAILED--> error` 回显、`助手> 模型调用失败：Connection error.`、trace 文件一条转移记录且 key 字符串不在 trace 与 session JSON 里。
@@ -111,7 +111,7 @@
 
 四票各自的红测、红输出与偏差在 `docs/evidence/t10/ … t13/REPORT.md`。要点：
 
-- **#10 原生 function calling**：原生模式 system prompt 不再教标签、工具只经 API `tools`；`tool_calls` 以真 assistant / tool 消息（带 `tool_call_id`）进历史并原样回放；llm effect 标 `mode`。这是 #4「模型在原生模式下吐 `<function=…>` 文本」的根源修法——两套协议不再打架。一次 live 不能证明偶发不再出现，只能说冲突已消除。
+- **#10 原生 function calling**：原生模式 system prompt 不再教标签、工具只经 API `tools`；`tool_calls` 以真 assistant / tool 消息（带 `tool_call_id`）进历史并原样回放；llm effect 标 `mode`。这是 #4“模型在原生模式下吐 `<function=…>` 文本”的根源修法——两套协议不再打架。一次 live 不能证明偶发不再出现，只能说冲突已消除。
 - **#11 重试分类**：401 / 400 / 404 一次即 error 终态；429 / 5xx / 超时 / 网络错指数退避（sleep 可注入，测试不真等）；逐次尝试 `tries[{n, errorClass, waitMs}]` 进 trace。`unknownTransition` 默认 `error`，全仓无 `VITEST`。
 - **#12 记忆上限**：记忆块 ≤ 1200 字符（历史预算的 10%），从最新往回装、截最老，`memory_truncated` 挂在轮首转移；历史预算与记忆预算分开，一条变异锁定。
 - **#13 Python 判分器**：与 TS oracle 对同一批证据结论一致；篡改一条记录两侧同样点名。④ 三处对齐凭 trace 判不了，两侧都不含。
@@ -133,7 +133,7 @@ not_run：无。skipped：无。未做：混合历史（先文本后原生）无
 
 复盘线四条 P0 不变量（`test/unit/review-invariants.test.ts`）各一红一绿：幂等、冲突不覆盖、每条亮点有来源、不复述原话。变异：R2 两条、R4 一条、R5 一条、R6 一条、R8 一条——各红一次已还原。review 表随机探索 300 走 2491 步零违反。
 
-not_run：无。skipped：无。未做：见 `docs/NEXT_STEPS.md`「复盘线」。
+not_run：无。skipped：无。未做：见 `docs/NEXT_STEPS.md`“复盘线”。
 
 ## 4. 五条 P0 不变量（D3 四条 + ⑤ 副作用对账）
 
@@ -158,7 +158,7 @@ oracle 实现在 `src/machine/invariants.ts`，只看 trace 记录、返回值�
 | 5 | 主题和菜单布局有结构化断言 | **不适用** | 无 UI（D7） |
 | 6 | 工作空间重命名、刷新、重启、定时任务恢复有正例、反例、邻近 invariant | **部分**（按对应物） | 重启对应物：新实例读盘接着聊（正例）、别的用户 `list` 为空 / 看不到 memory（反例）、压缩失败退回规则（邻近）；重命名与定时任务无对应物 |
 | 7 | 报告区分已验证、失败、未覆盖、跳过、外部依赖不可用 | **满足** | 本报告 §0–§3：已验证（进程内）条数只在 §0 表，由 `docs.test.ts` 对账；真实模型少量 smoke 逐批列出、失败已归因并修；not_run / skipped 在 §8 分开写；未覆盖见 §6 |
-| 8 | 敏感数据不进测试产物或 trace | **部分** | ④ 里一条弱断言（trace 文件不含 `apiKey|OPENAI`）+ CLI 冒烟手工确认 key 字符串不在 trace / session；工具 args 走 `redact`；表里 `api_key_never_in_trace` 仍标 planned，因为还没有「把真 key 放进配置再 grep 产物」的自动测试 |
+| 8 | 敏感数据不进测试产物或 trace | **部分** | ④ 里一条弱断言（trace 文件不含 `apiKey|OPENAI`）+ CLI 冒烟手工确认 key 字符串不在 trace / session；工具 args 走 `redact`；表里 `api_key_never_in_trace` 仍标 planned，因为还没有“把真 key 放进配置再 grep 产物”的自动测试 |
 
 ## 6. 未覆盖 / 诚实边界
 
@@ -186,11 +186,11 @@ not_run：无。skipped：无（本机有 key，live 真跑了一次）。
 
 | 片 | 红测（测试名） | 红的输出（摘） |
 |---|---|---|
-| A1 行 id | machine.test「A1：行 id 必填且定义期查重」；generator.test「答案卷是行 id 序列」；agent-loop / session-context 序列断言 | `expected [Function] to throw an error`；`expected [ 'deciding --LLM_FAILED--> error' ] to deeply equal [ 't-llm-failed' ]` |
-| A2 request_id | session-context.test「A2：每次模型调用、每次工具调用各有一个 request_id」 | `.toMatch() expects to receive a string, but got undefined` |
-| A3 blocked | machine.test「rejected 行的 verdict 是 blocked」；agent-loop.test「A3：坏 JSON 那一步是 blocked」 | `expected { status: 'rejected', … } to match object { status: 'blocked', … }`；`expected [ 't-llm-ok', 't-parse-error', …(2) ] to deeply equal [ 't-llm-ok [noop]', …(3) ]` |
-| A4 planned note | machine.test「A4：planned 不变量必须带 note」 | `expected [Function] to throw an error` |
-| A5 redact | session-context.test「A5：remember 的 value 不进 trace」 | `expected '{"key":"city","value":"上海徐汇区"}' not to contain '上海徐汇区'` |
+| A1 行 id | machine.test“A1：行 id 必填且定义期查重”；generator.test“答案卷是行 id 序列”；agent-loop / session-context 序列断言 | `expected [Function] to throw an error`；`expected [ 'deciding --LLM_FAILED--> error' ] to deeply equal [ 't-llm-failed' ]` |
+| A2 request_id | session-context.test“A2：每次模型调用、每次工具调用各有一个 request_id” | `.toMatch() expects to receive a string, but got undefined` |
+| A3 blocked | machine.test“rejected 行的 verdict 是 blocked”；agent-loop.test“A3：坏 JSON 那一步是 blocked” | `expected { status: 'rejected', … } to match object { status: 'blocked', … }`；`expected [ 't-llm-ok', 't-parse-error', …(2) ] to deeply equal [ 't-llm-ok [noop]', …(3) ]` |
+| A4 planned note | machine.test“A4：planned 不变量必须带 note” | `expected [Function] to throw an error` |
+| A5 redact | session-context.test“A5：remember 的 value 不进 trace” | `expected '{"key":"city","value":"上海徐汇区"}' not to contain '上海徐汇区'` |
 | B1 答案卷 | journeys.test 整文件 8 条 | `Cannot find module '../../src/machine/check.js'` |
 | B2 探索 | explore.test 整文件 6 条 | `Cannot find module '../../src/machine/explore.js'` |
 | C1 文档 | docs.test 4 条 | `expected [ '一句话', '命令', … ] to deeply equal [ '产品是什么', '铁律', … ]`；`ENOENT … docs/ARCHITECTURE.md` |
@@ -221,7 +221,7 @@ npm test         2 failed | 108 passed
 ### 既有断言改动清单（只在 issue 明说处）
 
 - A1：三处 trace 序列断言改行 id；contracts.test 按 id 找行改 `sr-input-while-busy`；machine.test 的 toContract 断言 `id` 改显式 id + `signature`；generator.test 的 rowsUsed 对比改 `r.id`。
-- A3：坏 JSON 序列出现 `[blocked]`、`LLM_OK` 出现 `[noop]`；两处「全部 status=allowed」改为「allowed 或 noop」/「无 unknown」（LLM_OK 改 noop 的直接后果）；machine.test 的 rejected 断言 `status` 改 `blocked`。
+- A3：坏 JSON 序列出现 `[blocked]`、`LLM_OK` 出现 `[noop]`；两处“全部 status=allowed”改为“allowed 或 noop”/“无 unknown”（LLM_OK 改 noop 的直接后果）；machine.test 的 rejected 断言 `status` 改 `blocked`。
 - 其余既有断言未动。
 
 ### 对标 §13 的变化
@@ -231,7 +231,7 @@ npm test         2 failed | 108 passed
 
 ## 8. v0.3（issue #8：移植 epic 分支三提交）—— 第 ⑤ 条不变量、trace 证据离线 oracle、条数单一事实源
 
-来源：`claude/epic-cerf-44n1c4` 上的 `2058831` / `d1dc4ea` / `986b1d5`，与 #6 冲突不能 cherry-pick，按其 diff 在 main（`83d078a`）的形状上重做：对账按记录上的 `transition` 行 id 找行（不按 from/event/to）；「全 allowed」一律改「无 unknown」（LLM_OK 是 noop、解析失败是 blocked）；对 noop / blocked 记录同样对账。
+来源：`claude/epic-cerf-44n1c4` 上的 `2058831` / `d1dc4ea` / `986b1d5`，与 #6 冲突不能 cherry-pick，按其 diff 在 main（`83d078a`）的形状上重做：对账按记录上的 `transition` 行 id 找行（不按 from/event/to）；“全 allowed”一律改“无 unknown”（LLM_OK 是 noop、解析失败是 blocked）；对 noop / blocked 记录同样对账。
 
 证据目录 `docs/evidence/v0.3/`（`bash scripts/gate.sh v0.3`，2026-09-15 UTC 06:27，评价对象 = commit 34dcf14 + 本片（docs）未提交的改动）。每个文件首行环境、末行 `exit N (expected M)`。
 
@@ -242,15 +242,15 @@ npm test         2 failed | 108 passed
 | 契约漂移 | `3-contracts.txt` | 3 份契约 0 漂移 | 已验证（进程内） |
 | 真实模型 | `4-live.txt` | **5/5**（qwen3-max，DashScope，18.4s）；afterAll 真跑，stderr 一行 `live trace 不变量：7 个文件，9 轮，42 条转移，status 分布 {"noop":17,"allowed":25}`，0 违反；trace 在 `evals/live-trace/2026-09-15-06-27*`（入库） | 真实模型少量 smoke（1 × 5，不写可靠率） |
 
-not_run：无。skipped：无（本机有 key，live 真跑了一次；vitest 报 6 passed = 5 场景 + afterAll 所在 describe 的 1 条「trace 文件存在」）。
+not_run：无。skipped：无（本机有 key，live 真跑了一次；vitest 报 6 passed = 5 场景 + afterAll 所在 describe 的 1 条“trace 文件存在”）。
 
 ### 三片逐条：红过什么（先写测试跑一次，贴那次失败；不另做回退验红）
 
 | 片 | 提交 | 红测（测试名） | 红的输出（摘） |
 |---|---|---|---|
-| ⑤ effectsDeclared | `feat(invariants)` | invariants.test「⑤ 副作用对账」三条；invariants.test ④ 绿（断 checkTurnInvariants 跑五条）；generator.test 10 条路径 | `TypeError: (0 , effectsDeclared) is not a function`；`expected [ 'no_tool_after_parse_error', …(3) ] to deeply equal [ …(4) ]`；`expected [ 'no_tool_after_parse_error', …(3) ] to include 'effects_declared'` |
-| trace 证据离线 oracle | `feat(evidence)` | live-evidence.test 整文件；实现后、删旧格式前「每一轮都过 ① ② ③ ⑤」 | `Error: Cannot find module '../../src/machine/evidence.js'`；`28 个文件，35 轮，163 条转移 … ✗ evals/live-trace/2026-09-15-05-24/calc.jsonl live/calc/1 [effects_declared] #1 行 id "undefined" 在表里不存在（deciding --LLM_OK--> deciding [allowed]）`（05-24 / 05-25 共 14 文件同样点名 → 旧格式，`git rm`） |
-| 条数单一事实源 | `docs` | docs.test「条数单一事实源」 | `contracts.test.ts 的 it.each 行缺 \`// ×N\` 展开标记`；加标记后 `expected {} to deeply equal { 'agent-loop.test.ts': 11, …(11) }`（报告里没有那张表） |
+| ⑤ effectsDeclared | `feat(invariants)` | invariants.test“⑤ 副作用对账”三条；invariants.test ④ 绿（断 checkTurnInvariants 跑五条）；generator.test 10 条路径 | `TypeError: (0 , effectsDeclared) is not a function`；`expected [ 'no_tool_after_parse_error', …(3) ] to deeply equal [ …(4) ]`；`expected [ 'no_tool_after_parse_error', …(3) ] to include 'effects_declared'` |
+| trace 证据离线 oracle | `feat(evidence)` | live-evidence.test 整文件；实现后、删旧格式前“每一轮都过 ① ② ③ ⑤” | `Error: Cannot find module '../../src/machine/evidence.js'`；`28 个文件，35 轮，163 条转移 … ✗ evals/live-trace/2026-09-15-05-24/calc.jsonl live/calc/1 [effects_declared] #1 行 id "undefined" 在表里不存在（deciding --LLM_OK--> deciding [allowed]）`（05-24 / 05-25 共 14 文件同样点名 → 旧格式，`git rm`） |
+| 条数单一事实源 | `docs` | docs.test“条数单一事实源” | `contracts.test.ts 的 it.each 行缺 \`// ×N\` 展开标记`；加标记后 `expected {} to deeply equal { 'agent-loop.test.ts': 11, …(11) }`（报告里没有那张表） |
 
 ### 第 ⑤ 条不变量落在哪
 
@@ -267,13 +267,13 @@ not_run：无。skipped：无（本机有 key，live 真跑了一次；vitest �
 
 ### 条数单一事实源
 
-- 条数只写在 §0「条数（唯一事实源）」那张表；`docs.test.ts` 用源码静态计数对账：`it(` 记 1，`it.each(` 行必须带 `// ×N`（contracts ×3、generator ×10、explore ×3），逐文件相等、合计行与 `npm test` 行的文件数 / 总数相等，每个文件只许出现一次。
-- AGENTS.md / README 不写总数（测试断 `\d+ 条(单测|全绿)|\d+ 文件 \d+ 条` 不出现）；AI-LOG §3、SPEC-state-machines §9 里过期的「live 未跑 / 旧格式」改为引用本报告 §3。
+- 条数只写在 §0“条数（唯一事实源）”那张表；`docs.test.ts` 用源码静态计数对账：`it(` 记 1，`it.each(` 行必须带 `// ×N`（contracts ×3、generator ×10、explore ×3），逐文件相等、合计行与 `npm test` 行的文件数 / 总数相等，每个文件只许出现一次。
+- AGENTS.md / README 不写总数（测试断 `\d+ 条(单测|全绿)|\d+ 文件 \d+ 条` 不出现）；AI-LOG §3、SPEC-state-machines §9 里过期的“live 未跑 / 旧格式”改为引用本报告 §3。
 
 ### 既有断言改动清单（只在 issue 明说处）
 
-- invariants.test ④ 绿：`checkTurnInvariants` 的「全过」断言前加一行断 id 列表是五条（新增断言，不改原断言）。
-- generator.test 10 条路径：新增「过五条不变量」断言；既有「无 unknown」断言不动。
+- invariants.test ④ 绿：`checkTurnInvariants` 的“全过”断言前加一行断 id 列表是五条（新增断言，不改原断言）。
+- generator.test 10 条路径：新增“过五条不变量”断言；既有“无 unknown”断言不动。
 - contracts.test / generator.test / explore.test 的 `it.each` 行加 `// ×N` 注释（不是断言）。
-- live-evidence.test 是新文件，按 issue 写「无 unknown」而非「全 allowed」，并断「有 noop」。
+- live-evidence.test 是新文件，按 issue 写“无 unknown”而非“全 allowed”，并断“有 noop”。
 - 其余既有断言未动。
