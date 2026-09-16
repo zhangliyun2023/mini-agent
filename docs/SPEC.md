@@ -85,14 +85,14 @@
 
 ### 交付
 35. 作为评审，我想 clone 后复制 `.env.example`、填一个任意 OpenAI-compatible 的 key 就能跑，这样不绑定某家厂商。
-36. 作为评审，我想 `npm test` 不需要 key 就全绿，`npm run test:live` 有 key 才跑真实模型，这样验证成本可选。
+36. 作为评审，我想 `make test` 不需要 key 就全绿，`make test-live` 有 key 才跑真实模型，这样验证成本可选。
 37. 作为评审，我想仓库里有一份真实模型运行的 trace，这样不用自己跑也能看到真实行为。
 38. 作为评审，我想 README 讲清运行方式、系统设计、context 里放什么、memory 何时召回放在哪、已知取舍，这样能判断作者的理解。
 39. 作为评审，我想看到 AI 协作记录：用了什么提示、真实模型暴露了什么问题、怎么解决，这样能判断作者怎么用 AI。
 
 ## Implementation Decisions
 
-- **语言与依赖**：TypeScript + Node ≥ 20，运行时依赖只有 OpenAI SDK（当 HTTP 客户端）；测试 vitest；不引 dotenv、zod 等，参数校验与 .env 读取自写。
+- **语言与依赖**：TypeScript + Node ≥ 20，运行时依赖只有 OpenAI SDK（当 HTTP 客户端）；测试 pytest；不引 dotenv、zod 等，参数校验与 .env 读取自写。
 - **模块划分**：`llm`（接口 + OpenAI-compatible 实现 + 脚本化假模型）、`protocol`（system prompt 构建 + 输出解析）、`tools`（注册表 + 四个工具）、`session`（会话存储 + context 组装与压缩）、`memory`（用户级记忆）、`runtime`（agent 循环 + trace）、`cli`。runtime 只依赖 `LLMClient` 接口，不知道厂商。
 - **输出协议**：`<think>…</think>` 可选；`<tool_call>{"name","arguments"}</tool_call>` 可多个；`<final>…</final>`。解析优先级：有工具调用则忽略 final 并记警告；无标签的裸文本当 final，但裸文本含 `{"name":…,"arguments":…}` 则记解析错误；`<invoke>` / `<function_call>` 作为别名接受并记警告。解析器永不抛异常，错误列表由 runtime 以 tool 消息回喂。
 - **system prompt**：角色 + 协议说明 + 规则（精确计算必用 calculator；追问不重复调用；用户说“记住”必须调 remember，口头“记下了”不算；标签名必须是 tool_call）+ 一个 one-shot 示例 + 工具清单（含 Schema 原文）+ 长期记忆块。示例与 remember 规则来自真实模型实测偏差（见 AI-LOG）。
@@ -115,7 +115,7 @@
 - **辅助 seam（两个纯函数）**：输出解析器（协议正例、裸文本、多调用、坏 JSON、缺 name、call+final 冲突、标签别名、裸 JSON、外层多套标签）；工具注册表（specs 形状、未注册、Schema 校验各分支、handler 抛错）以及四个工具各自的可见行为。
 - **真实模型 seam**：同一 `agent.run`，换真实客户端，五个场景（计算、搜索 + 追问、待办跨轮 + 跨窗口、remember 跨会话、原生 function calling），无 key 自动跳过，trace 写入 `evals/live-trace/` 并提交。
 - **TDD**：每个 seam 先写红测试再实现；真实模型暴露的偏差先补红测试再改解析器 / prompt。
-- **先例**：作者 AI Meeting 仓库里的 vitest 单测（ragQuery / liveCoach）是同样风格。
+- **先例**：作者 AI Meeting 仓库里的 pytest 单测（ragQuery / liveCoach）是同样风格。
 
 ## Out of Scope
 

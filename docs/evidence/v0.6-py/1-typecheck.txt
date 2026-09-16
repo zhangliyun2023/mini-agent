@@ -1,0 +1,2 @@
+# 2026-09-15T22:16:58-06:00 python=Python 3.9.6 commit=7245094 label=v0.6-py cmd: make -s typecheck
+exit 0 (expected 0)

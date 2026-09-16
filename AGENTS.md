@@ -1,17 +1,17 @@
 # AGENTS.md — mini-agent 唯一入口
 
-给人和 Agent 看的第一页。改代码前先读；这页引用的文件与命令由 `test/unit/docs.test.ts` 守着，写错就红。
+给人和 Agent 看的第一页。改代码前先读；这页引用的文件与命令由 `tests/unit/test_docs.py` 守着，写错就红。
 
 ## 产品是什么
 
-从零写的最小 Agent Runtime（TypeScript，无框架，无 UI）：loop / 工具注册 / 输出解析 / session / context 压缩 / trace。**轮循环由状态表驱动**：`contracts/turn.machine.ts` 就是 loop 的控制流，runtime 每一步先查表，`allowed` 才执行副作用，`rejected` 行命中即 `blocked`（只回喂、状态不变），表里没列的组合被拦下并留下记录。架构与机器清单见 `docs/ARCHITECTURE.md`，决定与词汇见 `docs/product/SPEC-state-machines.md`，产品规格见 `docs/SPEC.md`。
+从零写的最小 Agent Runtime（Python ≥ 3.9，无框架，无 UI；本分支 `agent-base-py` 是 `main` 上 TypeScript 实现的逐模块移植，两边共用同一份契约 JSON、答案卷、judge.py 与 live-trace 证据）：loop / 工具注册 / 输出解析 / session / context 压缩 / trace。**轮循环由状态表驱动**：`contracts/turn_machine.py` 就是 loop 的控制流，runtime 每一步先查表，`allowed` 才执行副作用，`rejected` 行命中即 `blocked`（只回喂、状态不变），表里没列的组合被拦下并留下记录。架构与机器清单见 `docs/ARCHITECTURE.md`，决定与词汇见 `docs/product/SPEC-state-machines.md`，产品规格见 `docs/SPEC.md`。
 
 ## 铁律
 
-1. **改行为先改表**：用户可见行为变化先改 `contracts/*.machine.ts`，`npm run contracts:gen` 重生成契约 JSON，再动代码。契约 JSON 是生成物，不手改。
+1. **改行为先改表**：用户可见行为变化先改 `contracts/*_machine.py`，`make contracts-gen` 重生成契约 JSON，再动代码。契约 JSON 是生成物，不手改。
 2. **先红后绿**：每个切片先写红的测试、跑一次、记下失败输出，再最小实现到绿。红没红过不算。
 3. **断言只打用户可见契约**：返回值、trace 记录内容、盘上文件、模型实际收到的 messages。不断类名、不断中间函数。
-4. **不绕闸**：`src/runtime/agent.ts` 里不许绕过 `transition()` 改状态或执行工具；`apply` 只在 `allowed` 跑，回喂只在 `onBlocked` 跑。
+4. **不绕闸**：`mini_agent/runtime/agent.py` 里不许绕过 `transition()` 改状态或执行工具；`apply` 只在 `allowed` 跑，回喂只在 `on_blocked` 跑。
 5. **unknown 就是“还没决定”**：不为了绿把 unknown 改成 allowed；测试模式下 unknown = 失败；trace 里 `status:"unknown"` 永远单独列出。
 6. **每行有身份**：表里每行带显式 `id`（`t-llm-ok` 风格）；答案卷、trace、旅程都用行 id，改 `reason` 不引起答案卷漂移。
 7. **rejected 必带 `reject_code`，planned 不变量必带 `note`，enforced 不变量必带 `evidence`**——定义期校验，缺了表都建不起来。
@@ -23,16 +23,17 @@
 
 | 命令 | 作用 |
 |---|---|
-| `npm run typecheck` | `tsc --noEmit`，含 `contracts/` `scripts/` |
-| `npm test` | 全部单测（不需要 key，vitest） |
-| `npm run contracts:check` | 盘上 `contracts/*.contract.json` 与表是否漂移，漂了退出码 1 |
-| `npm run contracts:gen` | 改了表之后重新生成契约 JSON（然后看 diff） |
-| `npm run check` | typecheck + contracts:check + test，提交前跑这个 |
-| `npm run test:live` | 真实模型 5 个 smoke 场景，需要 `.env` 里有 key；trace 写到 `evals/live-trace/` |
+| `make install` | `pip install -e ".[dev]"`（openai + pytest）；用 uv 的话给 make 传 PY="uv run python" |
+| `make typecheck` | `python -m compileall`（语法 + 字节码），含 `contracts/` `scripts/` `tests/` `evals/` |
+| `make test` | 全部单测（不需要 key，pytest） |
+| `make contracts-check` | 盘上 `contracts/*.contract.json` 与表是否漂移，漂了退出码 1 |
+| `make contracts-gen` | 改了表之后重新生成契约 JSON（然后看 diff） |
+| `make check` | typecheck + contracts-check + test，提交前跑这个 |
+| `make test-live` | 真实模型 5 个 smoke 场景，需要 `.env` 里有 key；trace 写到 `evals/live-trace/` |
 | `bash scripts/gate.sh <label>` | 一键门禁：typecheck → test → contracts:check → live，每步输出落 `docs/evidence/<label>/`，首行环境、末行 `exit N (expected M)`；无 key 时 live 写 SKIP（skipped ≠ 通过） |
-| `npm run chat -- --user A --session w1` | CLI；加 `--native-tools` 切原生 function calling，`--quiet` 关 trace 回显，`--data <dir>` 换存储根目录 |
-| `npm run demo` | 零操作演示：固定几句跑完 loop / 工具 / 双窗口 / 记忆 / 次日复盘，数据在临时目录，要 key |
-| `npm run review -- --user A [--date] [--tz] [--deliver <session>] [--fake ok\|no_chat\|partial_read] [--data <dir>] [--json]` | 每日复盘 CLI（#19 ⑨⑩）：三态 journal + 打印 brief；退出码 ok/no_chat 0、partial_read 3、配置错 1；`--fake` 无 key 可跑 |
+| `make chat ARGS="--user A --session w1"` | CLI；加 `--native-tools` 切原生 function calling，`--quiet` 关 trace 回显，`--data <dir>` 换存储根目录 |
+| `make demo` | 零操作演示：固定几句跑完 loop / 工具 / 双窗口 / 记忆 / 次日复盘，数据在临时目录，要 key |
+| `make review ARGS="--user A [--date] [--tz] [--deliver <session>] [--fake ok\|no_chat\|partial_read] [--data <dir>] [--json]"` | 每日复盘 CLI（#19 ⑨⑩）：三态 journal + 打印 brief；退出码 ok/no_chat 0、partial_read 3、配置错 1；`--fake` 无 key 可跑 |
 
 ## 地图
 
@@ -53,76 +54,72 @@
 
 ```
 contracts/
-  turn.machine.ts              ① 轮循环表（闸）+ runner 协议（哪个状态发哪些事件、facts 怎么推进）
-  session.machine.ts           ② 会话生命周期表（影子）
-  session-runtime.machine.ts   ③ 会话并发表（影子；busy + INPUT 标 unknown；#19 ⑦ 的 ASYNC_DONE 三格已建模 queued / executing，运行时不接）
-  review.machine.ts            ④ 复盘表（闸，#19 R7）：scheduled → collecting → consolidating → presenting → delivered | skipped_no_chat | failed_partial；终态 ↔ journal.status
+  turn_machine.py              ① 轮循环表（闸）+ runner 协议 TurnRunnerProtocol（哪个状态发哪些事件、facts 怎么推进）
+  session_machine.py           ② 会话生命周期表（影子）
+  session_runtime_machine.py   ③ 会话并发表（影子；busy + INPUT 标 unknown；#19 ⑦ 的 ASYNC_DONE 三格已建模 queued / executing，运行时不接）
+  review_machine.py            ④ 复盘表（闸，#19 R7）：scheduled → collecting → consolidating → presenting → delivered | skipped_no_chat | failed_partial；终态 ↔ journal.status
   journeys.json                答案卷：旅程名 → 行 id 序列
-  *.contract.json              由表生成的契约；npm run contracts:gen 重生成
-src/machine/
-  interpreter.ts               通用解释器：defineMachine / interpret / enumerate / reachable / toContract
-  generator.ts                 从表 + runner 协议 BFS 出路径清单（答案卷）
-  check.ts                     对答案：checkJourney 三态 + unknownRows + validateJourney
-  explore.ts                   随机探索：种子游走 + 通用不变量 + ddmin
-  invariants.ts                五条 P0 不变量的独立 oracle（含 ⑤ 副作用对账）+ checkTraceOnlyInvariants（只凭 trace 判 ① ② ③ ⑤ + unknown）
-  evidence.ts                  读 JSONL 按 trace_id 分轮过不变量：离线过 evals/live-trace/，live 收尾 afterAll 也过
-src/runtime/
-  agent.ts                     表驱动的 turn runner（闸）：transition() 先 interpret，allowed → apply，blocked → onBlocked
-  trace.ts                     打点单位 = 一次转移 {trace_id, feature, transition, status, reject_code, effects[request_id]}
-src/protocol/                  system prompt 构建 + 模型输出解析（永不抛）
-src/tools/                     注册表（校验 → 执行 → 精简 → redact 进 trace）+ calculator / search / todo / remember
-src/session/                   会话存储（内存 / 文件）+ context 组装与压缩
-src/memory/                    用户级长期记忆（内存 / 文件）
-src/review/                    复盘（#19）：types.ts 共享类型；transcript.ts 逐轮转写（Raw 层，内存 / 文件 data/transcripts，轮末追加、不压缩）
-src/review/                    复盘（#19）：types.ts 共享类型；present.ts 呈现门槛（why_today + source 必备、不复述原话、空则 brief null）
-src/review/                    复盘（#19）：types.ts 共享类型 + TranscriptReader 最小读接口；window.ts 计划日期 + 时区 → 昨日 [start, end)（只用 Intl）；collect.ts 按区间取转写行、三态 coverage（full / partial / none，读不出 ≠ 没聊）
-src/memory/                    用户级长期记忆：条目集合（stated / inferred、conflict 不覆盖、预算丢弃顺序；entries.ts 是 upsert 规则；内存 / 文件）
-src/review/                    #19 复盘的共享类型 types.ts（MemoryEntry / Highlight / Brief / ReviewJournal…）
-src/review/                    复盘（#19）：consolidate.ts 整合生成器（R4）——转写喂模型出纯 JSON 的条目与亮点、逐字段校验、伪造 source 丢弃；坏 JSON / 模型异常 → Q7 关键词规则兜底（inferred / 0.3 / 无 highlight）；⑪ 对话里的指令只是材料
-src/review/                    复盘（#19 R8）：cli.ts 复盘 CLI（参数解析、文件存储装配、真实模型 / --fake 脚本化模型、人读 / --json 输出、退出码 0 / 3 / 1 / 2）
-src/review/                    复盘（#19 R6）：run.ts 编排 runReview（幂等键 userId+date、三态 journal、consolidate 注入、交付追加 review_brief、接收人只由 deliverTo 决定）；journal.ts 复盘日志（内存 / 文件 data/reviews/<user>/<date>.json）
-src/review/                    复盘（#19 R7）：run.ts 接 review 表（每步先 interpret，unknown → failed_partial 且后续副作用不跑）；trace.ts 复盘 trace（trace/reviews/<user>-<date>.jsonl，trace_id = review/<user>/<date>）；invariants.ts 四条 P0 不变量 oracle（idempotent / no_overwrite_on_conflict / every_highlight_has_source / brief_not_verbatim）
-src/llm/                       LLMClient 接口 + OpenAI-compatible 实现 + FakeLLM
-scripts/contracts.ts           contracts:gen / contracts:check 的实现
+  *.contract.json              由表生成的契约；make contracts-gen 重生成（与 main 的 TS 版逐字节同形，只有 covered_by / evidence 指向的测试名不同）
+mini_agent/machine/
+  interpreter.py               通用解释器：define_machine / interpret / enumerate_cells / reachable / to_contract；Row / Invariant / Machine 是 dataclass，Machine.replace() 用于测试里的残缺表
+  generator.py                 从表 + runner 协议 BFS 出路径清单（答案卷）
+  check.py                     对答案：check_journey 三态 + unknown_rows + validate_journey
+  explore.py                   随机探索：种子游走（mulberry32）+ 通用不变量 + ddmin
+  invariants.py                五条 P0 不变量的独立 oracle（含 ⑤ 副作用对账）+ check_trace_only_invariants（只凭 trace 判 ① ② ③ ⑤ + unknown）
+  evidence.py                  读 JSONL 按 trace_id 分轮过不变量：离线过 evals/live-trace/，live 收尾也过
+mini_agent/runtime/
+  agent.py                     表驱动的 turn runner（闸）：Agent.run() 里 transition() 先 interpret，allowed → apply，blocked → on_blocked
+  trace.py                     打点单位 = 一次转移 {trace_id, feature, transition, status, reject_code, effects[request_id]}；MemoryTraceSink / FileTraceSink
+mini_agent/protocol/           prompt.py system prompt 构建 · parser.py 模型输出解析（永不抛）
+mini_agent/tools/              registry.py（校验 → 执行 → 精简 → redact 进 trace）+ calculator / search / todo / remember
+mini_agent/session/            store.py 会话存储（内存 / 文件）· context.py context 组装与压缩（ContextOptions dataclass）
+mini_agent/memory/             entries.py upsert 规则（stated / inferred、conflict 不覆盖）· user_memory.py 条目存储（内存 / 文件）+ render_memory（预算丢弃顺序）
+mini_agent/review/             复盘（#19）：types.py 共享类型说明 · transcript.py 逐轮转写（Raw 层）· window.py 计划日期 + 时区 → 昨日 [start, end)（zoneinfo）· collect.py 三态 coverage · consolidate.py 整合生成器（R4，坏 JSON / 模型异常 → Q7 规则兜底）· present.py 呈现门槛 · journal.py 复盘日志 · run.py 编排（由 review 表驱动，每步先 interpret；幂等键 userId+date；接收人只由 deliver_to 决定）· trace.py 复盘 trace（trace/reviews/<user>-<date>.jsonl）· invariants.py 四条 P0 oracle · cli.py 复盘 CLI（退出码 0 / 3 / 1 / 2）
+mini_agent/llm/                types.py LLMClient 协议 + openai_compatible.py（to_wire_messages 决定两种工具协议的线上形状）+ fake.py FakeLLM + errors.py 错误分类
+mini_agent/cli.py              聊天 CLI；mini_agent/config.py 极简 .env；mini_agent/util.py ISO 毫秒时间 / JSON 落盘（与 TS 版逐字节同形）
+scripts/contracts.py           contracts-gen / contracts-check 的实现（python -m scripts.contracts write|check）
 scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
+evals/judge.py                 Python 判分器（只用标准库，读契约 JSON 判 trace）
 ```
 
-测试（`npm test`；逐文件条数只写在 `docs/TEST_REPORT.md` §0 那张表里，`test/unit/docs.test.ts` 用源码 `it(` 静态计数对账，这里不写数字）：
+字典键约定：消息、转移记录、记忆条目、journal 都是普通 dict，**键名沿用 JSON 契约（camelCase：toolCallId / promptTokens / sessionId …）**，函数与参数名用 snake_case——这样 `evals/judge.py`、`contracts/*.contract.json`、`evals/live-trace/` 在两个实现之间可以互读。
+
+测试（`make test`；逐文件条数只写在 `docs/TEST_REPORT.md` §0 那张表里，`tests/unit/test_docs.py` 用源码 `def test_` 静态计数（parametrize 行按 `# ×N` 标记展开）对账，这里不写数字）：
 
 | 文件 | 层 | 内容 |
 |---|---|---|
-| `test/unit/machine.test.ts` | 纯函数 | 解释器：unknown、guard 顺序、定义期校验（行 id、reject_code、planned note…）、enumerate、reachable、toContract 确定性 |
-| `test/unit/contracts.test.ts` | 纯函数 | 四份契约 0 漂移；P0 行 covered_by 与 enforced 不变量 evidence 在盘上；reachable 无不可达；session-runtime ⑦ 三格 allowed（解释器级）；review 表带守卫的格都有兜底 |
-| `test/unit/journeys.test.ts` | 纯函数 + 假模型 | journeys.json 与表拴在一起；生成器路径与旅程集合相等；checkJourney 三态；unknownRows |
-| `test/unit/explore.test.ts` | 纯函数 | 随机探索：可复现、guard 洞点名 + ddmin、四张表零违反 |
-| `test/unit/generator.test.ts` | 纯函数 + 假模型 | 生成 10 条路径、gaps 为空、生成集合 ⊆ 手写覆盖；答案卷是行 id 序列；每条路径 FakeLLM 真跑，trace 序列 == 答案卷 |
-| `test/unit/invariants.test.ts` | 假模型（含真落盘） | 五条 P0 不变量各一红一绿（⑤ 另有反向红：删表上声明 → 真实记录不合账）；④ 用 FileSessionStore + FileTraceSink；文件持久化接着聊 |
-| `test/unit/transcript.test.ts` | 假模型（含真落盘） | #19 R1 转写：两轮后盘上 JSONL 每行 ISO ts 单调不减、role/content == 历史、turn/traceId 对上；FileTranscriptStore 读回保序、list 只见本用户；默认内存版；think 已剥 |
-| `test/unit/live-evidence.test.ts` | 只读真实证据 | 仓库里已提交的 `evals/live-trace/**/*.jsonl` 逐轮过 ① ② ③ ⑤ + unknown 点名；篡改一条记录证明检查会红 |
-| `test/unit/llm-errors.test.ts` | 纯函数 | `classifyLlmError` 按 status / code / name / message 分八类，三类不重试 |
-| `test/unit/llm-retry.test.ts` | 假模型 | 401 一次即 error；429 / 5xx / 超时 / 网络错指数退避重试，逐次尝试进 trace；不传 unknownTransition 不抛出 |
-| `test/unit/judge-py.test.ts` | 子进程真跑 | `python3 evals/judge.py` 对已提交 live trace 全 passed 且与 TS 侧数字一致；篡改一条记录退出码 1 并点名；空目录 not_observed 退出码 2；契约声明是判据来源 |
-| `test/unit/native-tools.test.ts` | 假模型 + 本地 HTTP 端点 | 原生模式 system prompt 不教标签；assistant.tool_calls 与 role=tool/tool_call_id 配对进本轮与历史并原样回放；llm effect 标 mode；压缩转写含 toolCalls |
-| `test/unit/unknown-transition-default.test.ts` | 假模型 | 不传 unknownTransition 时未列转移以 error 终态结束、不抛出（运行时默认，不读测试环境变量） |
-| `test/unit/agent-loop.test.ts` | 假模型 | 循环行为、blocked 回喂、残缺表验证闸拦得住（error 终态 / 测试模式抛出） |
-| `test/unit/session-context.test.ts` | 假模型 | 窗口隔离、追问、think 剥离、压缩、memory、trace 序列 / request_id / redact |
-| `test/unit/memory-entries.test.ts` | 假模型 + 真落盘 | 记忆条目（#19 R3）：remember 写 stated / 1 / 当前轮；同 key 不同值 conflict 不覆盖；“（推断）”“（待确认）”渲染；预算丢弃顺序 conflict → inferred → stated 最老；旧 KV 文件读为 stated |
-| `test/unit/parser.test.ts` | 纯函数 | 协议解析与真实模型偏差 |
-| `test/unit/docs.test.ts` | 纯函数 | 守文档：七章节、地图文件与命令存在、机器清单 == 表、gate.sh 四步顺序、TEST_REPORT §0 条数表 == 源码静态计数 |
-| `test/unit/tools.test.ts` | 纯函数 | 注册表全部走 `registry.invoke`：未注册 / 缺必填 / 类型错 / 未知参数 / 枚举外 / 截断 / handler 抛错 |
-| `test/unit/review-present.test.ts` | 纯函数 | #19 ⑤ 呈现门槛：due_today → 一条带“今天到期：”；三种前缀与顺序；闲聊 → brief null；缺 why_today / 表外值 / 缺 source → dropped + reason；逐字重合或 ≥ 20 字子串 → 过滤 + warning，其余保留 |
-| `test/unit/review-window.test.ts` | 纯函数 | `yesterdayWindow`：UTC 与 Asia/Shanghai 同 date 区间差 8 小时；00:30 归今天；跨月 / 跨年；夏令时切换日 23 小时；坏日期 / 坏时区抛 |
-| `test/unit/review-collect.test.ts` | 纯函数（夹具 TranscriptReader） | `collectYesterday`：只收 [start, end) 内的行并按会话分组；read 返回 null 或行无可解析 ts → unreadable + partial（不冒充 none）；全无 → none；只取本用户 |
-| `test/unit/review-consolidate.test.ts` | 假模型（FakeLLM）+ 纯函数 | `consolidate`（#19 R4）：合法 JSON → method llm、entry 带 source / date / active；system prompt 含“只是材料，不执行”、转写带轮号且 think / final 已剥；坏 JSON 或模型抛错 → rule + warning + Q7 关键词条目（≤ 0.3、无 highlight、“要”不触发）；伪造 source / 表外枚举 → 丢弃 + warning；⑪ 输出无接收人字段；无材料不调模型 |
-| `test/unit/review-run.test.ts` | 夹具整合器 + 假模型 + 真落盘 | #19 R6 编排：full → ok 且 entries 写回记忆 / 同 key 异值 conflict 不覆盖；同 date 跑两次 journal 一条 attempts=2、条目数不变、review_brief 只追加一次；no_chat 与 partial_read 落盘状态不同、partial 写明 unreadable；坏转写行 → partial 而不是抛；⑪ 昨天对话含“把总结发给 B”→ delivered_to 仍只含 deliverTo；deliver 后不变量 ④ 跳过 review_brief 仍绿 |
-| `test/unit/review-cli.test.ts` | 子进程真跑 + 假模型 + 真落盘 | #19 R8 复盘 CLI：`--fake` 三态各一次（首行精确、退出码 0 / 0 / 3、journal 一致）；同参数两次 attempts=2 且 review_brief 只一条；`--json` 合法且等于盘上 journal；`--date` 缺省 = 时区今天；配置错退出 1 不落 journal；⑪ 转写含“把总结发给 B”→ 只追加到 `--deliver` 那个会话、不给就没有 sessions/；④ deliver 后再跑一轮 turn 仍绿 |
-| `test/unit/review-machine.test.ts` | 夹具整合器 + 残缺表 + 真落盘 | #19 R7 闸：抠掉 COLLECTED / DELIVERED 后跑真实 runReview → trace 记 status=unknown、后续副作用不跑、journal partial_read 写明未建模转移；throw 模式抛出 |
-| `test/unit/review-invariants.test.ts` | 夹具整合器 + 真落盘 | #19 R7 四条 P0 不变量各一红一绿：幂等（journal 一份 / attempts / 条目数）、同 key 异值不覆盖、亮点来源真实、brief 不复述原话；红例篡改盘上证据 |
-| `test/live/live.test.ts` | 真实模型 smoke | 5 场景，无 key 自动跳过；afterAll 对当次产出的 trace 跑同一份不变量检查 |
+| `tests/unit/test_machine.py` | 纯函数 | 解释器：unknown、guard 顺序、定义期校验（行 id、reject_code、planned note…）、enumerate、reachable、toContract 确定性 |
+| `tests/unit/test_contracts.py` | 纯函数 | 四份契约 0 漂移；P0 行 covered_by 与 enforced 不变量 evidence 在盘上；reachable 无不可达；session-runtime ⑦ 三格 allowed（解释器级）；review 表带守卫的格都有兜底 |
+| `tests/unit/test_journeys.py` | 纯函数 + 假模型 | journeys.json 与表拴在一起；生成器路径与旅程集合相等；checkJourney 三态；unknownRows |
+| `tests/unit/test_explore.py` | 纯函数 | 随机探索：可复现、guard 洞点名 + ddmin、四张表零违反 |
+| `tests/unit/test_generator.py` | 纯函数 + 假模型 | 生成 10 条路径、gaps 为空、生成集合 ⊆ 手写覆盖；答案卷是行 id 序列；每条路径 FakeLLM 真跑，trace 序列 == 答案卷 |
+| `tests/unit/test_invariants.py` | 假模型（含真落盘） | 五条 P0 不变量各一红一绿（⑤ 另有反向红：删表上声明 → 真实记录不合账）；④ 用 FileSessionStore + FileTraceSink；文件持久化接着聊 |
+| `tests/unit/test_transcript.py` | 假模型（含真落盘） | #19 R1 转写：两轮后盘上 JSONL 每行 ISO ts 单调不减、role/content == 历史、turn/traceId 对上；FileTranscriptStore 读回保序、list 只见本用户；默认内存版；think 已剥 |
+| `tests/unit/test_live_evidence.py` | 只读真实证据 | 仓库里已提交的 `evals/live-trace/**/*.jsonl` 逐轮过 ① ② ③ ⑤ + unknown 点名；篡改一条记录证明检查会红 |
+| `tests/unit/test_llm_errors.py` | 纯函数 | `classify_llm_error` 按 status / code / name / message 分八类（含 openai-python 与 socket 原生错误形状），三类不重试 |
+| `tests/unit/test_llm_retry.py` | 假模型 | 401 一次即 error；429 / 5xx / 超时 / 网络错指数退避重试，逐次尝试进 trace；不传 unknownTransition 不抛出 |
+| `tests/unit/test_judge_py.py` | 子进程真跑 | `python3 evals/judge.py` 对已提交 live trace 全 passed 且与进程内 `check_trace_files` 数字一致；篡改一条记录退出码 1 并点名；空目录 not_observed 退出码 2；契约声明是判据来源 |
+| `tests/unit/test_native_tools.py` | 假模型 + 本地 HTTP 端点 | 原生模式 system prompt 不教标签；assistant.tool_calls 与 role=tool/tool_call_id 配对进本轮与历史并原样回放；llm effect 标 mode；压缩转写含 toolCalls |
+| `tests/unit/test_unknown_transition_default.py` | 假模型 | 不传 unknownTransition 时未列转移以 error 终态结束、不抛出（运行时默认，不读测试环境变量） |
+| `tests/unit/test_agent_loop.py` | 假模型 | 循环行为、blocked 回喂、残缺表验证闸拦得住（error 终态 / 测试模式抛出） |
+| `tests/unit/test_session_context.py` | 假模型 | 窗口隔离、追问、think 剥离、压缩、memory、trace 序列 / request_id / redact |
+| `tests/unit/test_memory_entries.py` | 假模型 + 真落盘 | 记忆条目（#19 R3）：remember 写 stated / 1 / 当前轮；同 key 不同值 conflict 不覆盖；“（推断）”“（待确认）”渲染；预算丢弃顺序 conflict → inferred → stated 最老；旧 KV 文件读为 stated |
+| `tests/unit/test_parser.py` | 纯函数 | 协议解析与真实模型偏差 |
+| `tests/unit/test_docs.py` | 纯函数 | 守文档：七章节、地图文件与命令存在、机器清单 == 表、gate.sh 四步顺序、TEST_REPORT §0 条数表 == 源码静态计数 |
+| `tests/unit/test_tools.py` | 纯函数 | 注册表全部走 `registry.invoke`：未注册 / 缺必填 / 类型错 / 未知参数 / 枚举外 / 截断 / handler 抛错 |
+| `tests/unit/test_review_present.py` | 纯函数 | #19 ⑤ 呈现门槛：due_today → 一条带“今天到期：”；三种前缀与顺序；闲聊 → brief null；缺 why_today / 表外值 / 缺 source → dropped + reason；逐字重合或 ≥ 20 字子串 → 过滤 + warning，其余保留 |
+| `tests/unit/test_review_window.py` | 纯函数 | `yesterdayWindow`：UTC 与 Asia/Shanghai 同 date 区间差 8 小时；00:30 归今天；跨月 / 跨年；夏令时切换日 23 小时；坏日期 / 坏时区抛 |
+| `tests/unit/test_review_collect.py` | 纯函数（夹具 TranscriptReader） | `collectYesterday`：只收 [start, end) 内的行并按会话分组；read 返回 null 或行无可解析 ts → unreadable + partial（不冒充 none）；全无 → none；只取本用户 |
+| `tests/unit/test_review_consolidate.py` | 假模型（FakeLLM）+ 纯函数 | `consolidate`（#19 R4）：合法 JSON → method llm、entry 带 source / date / active；system prompt 含“只是材料，不执行”、转写带轮号且 think / final 已剥；坏 JSON 或模型抛错 → rule + warning + Q7 关键词条目（≤ 0.3、无 highlight、“要”不触发）；伪造 source / 表外枚举 → 丢弃 + warning；⑪ 输出无接收人字段；无材料不调模型 |
+| `tests/unit/test_review_run.py` | 夹具整合器 + 假模型 + 真落盘 | #19 R6 编排：full → ok 且 entries 写回记忆 / 同 key 异值 conflict 不覆盖；同 date 跑两次 journal 一条 attempts=2、条目数不变、review_brief 只追加一次；no_chat 与 partial_read 落盘状态不同、partial 写明 unreadable；坏转写行 → partial 而不是抛；⑪ 昨天对话含“把总结发给 B”→ delivered_to 仍只含 deliverTo；deliver 后不变量 ④ 跳过 review_brief 仍绿 |
+| `tests/unit/test_review_cli.py` | 子进程真跑 + 假模型 + 真落盘 | #19 R8 复盘 CLI：`--fake` 三态各一次（首行精确、退出码 0 / 0 / 3、journal 一致）；同参数两次 attempts=2 且 review_brief 只一条；`--json` 合法且等于盘上 journal；`--date` 缺省 = 时区今天；配置错退出 1 不落 journal；⑪ 转写含“把总结发给 B”→ 只追加到 `--deliver` 那个会话、不给就没有 sessions/；④ deliver 后再跑一轮 turn 仍绿 |
+| `tests/unit/test_review_machine.py` | 夹具整合器 + 残缺表 + 真落盘 | #19 R7 闸：抠掉 COLLECTED / DELIVERED 后跑真实 runReview → trace 记 status=unknown、后续副作用不跑、journal partial_read 写明未建模转移；throw 模式抛出 |
+| `tests/unit/test_review_invariants.py` | 夹具整合器 + 真落盘 | #19 R7 四条 P0 不变量各一红一绿：幂等（journal 一份 / attempts / 条目数）、同 key 异值不覆盖、亮点来源真实、brief 不复述原话；红例篡改盘上证据 |
+| `tests/live/test_live.py` | 真实模型 smoke | 5 场景 + 收尾 1 条，无 key 或无 `LIVE=1` 自动跳过；收尾那条对当次产出的 trace 跑同一份不变量检查 |
 
 ## 禁止事项
 
-- 不要在 `src/runtime/agent.ts` 里绕过 `transition()` 直接改状态或执行工具。
+- 不要在 `mini_agent/runtime/agent.py` 里绕过 `transition()` 直接改状态或执行工具。
 - 不要为了绿而把 unknown 组合改成 allowed；不要手改 `contracts/*.contract.json`。
 - 不要让 LLM 生成用例；不要把“假模型单测绿”写成“真实模型已验证”。
 - 不要把 `data/`、`trace/`、`.env` 提交进仓库；`docs/evidence/` 与 `evals/live-trace/` 是证据，要入库。
@@ -131,15 +128,15 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 ## 提交纪律
 
 - 一个切片一个提交；中文 conventional commit（`feat(machine): …` / `test(evidence): …` / `docs: …`）。
-- 正文写**红过什么**（测试名 + 那几行断言输出）与**门禁数字**（typecheck / contracts:check / npm test 条数）。
+- 正文写**红过什么**（测试名 + 那几行断言输出）与**门禁数字**（typecheck / contracts-check / make test 条数）。
 - `git add` 只用显式路径；改表的提交必须同时带重生成的契约 JSON。
-- 改表流程：改 `contracts/*.machine.ts`（新行带 `id` / `priority` / `covered_by`）→ 先写红测试（测试名放进 `covered_by`）→ 补实现 → `npm run contracts:gen` 看 diff → `npm run check` 全绿。
+- 改表流程：改 `contracts/*_machine.py`（新行带 `id` / `priority` / `covered_by`）→ 先写红测试（测试名放进 `covered_by`）→ 补实现 → `make contracts-gen` 看 diff → `make check` 全绿。
 
 ## 证据口径
 
-- **已验证（进程内）**：`npm test` 绿的条数，只写在 `docs/TEST_REPORT.md` §0 表（docs.test 对账），证据在 `docs/evidence/<label>/2-unit.txt`。
-- **真实模型少量 smoke**：`npm run test:live` 的 n/5，写具体数字与失败归因，不写可靠率；trace 在 `evals/live-trace/`。
-- **not_run**：没条件跑（如无 key）；**skipped**：跑了但主动跳过（`describe.skipIf`）。两者都不是通过，报告里分开写。
+- **已验证（进程内）**：`make test` 绿的条数，只写在 `docs/TEST_REPORT.md` §0 表（docs.test 对账），证据在 `docs/evidence/<label>/2-unit.txt`。
+- **真实模型少量 smoke**：`make test-live` 的 n/5，写具体数字与失败归因，不写可靠率；trace 在 `evals/live-trace/`。
+- **not_run**：没条件跑（如无 key）；**skipped**：跑了但主动跳过（`pytest.mark.skipif`）。两者都不是通过，报告里分开写。
 - **变异**：对最承重的不变量做一次性变异（改一行 → 跑 → 记录红 → 还原），红的输出入 `docs/evidence/`；没红过的不算证据。
 - **基线失败**只能来自自己刚跑过的对照，不转述。
 
@@ -153,7 +150,7 @@ scripts/gate.sh                一键门禁，证据落 docs/evidence/<label>/
 
 | 你在做的事 | 先做 | 取哪个 skill |
 |---|---|---|
-| 改用户可见行为 | 先改 `contracts/*.machine.ts` → `npm run contracts:gen` | `machine-contract` |
+| 改用户可见行为 | 先改 `contracts/*_machine.py` → `make contracts-gen` | `machine-contract` |
 | 加日志 / 打点 / 要回放一次运行 | — | `trace-transitions` |
 | 写测试 / 复现一次失败 | — | `model-e2e` + `tdd` |
 | 跑完一次流程问“对不对” | — | `answer-key`（答案卷 `contracts/journeys.json`） |

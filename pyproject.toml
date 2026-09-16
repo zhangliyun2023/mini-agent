@@ -1,0 +1,21 @@
+[project]
+name = "mini-agent"
+version = "0.1.0"
+description = "从零实现的最小可用 Agent Runtime（Python）：loop / 工具注册 / 输出解析 / session / context 压缩 / trace"
+requires-python = ">=3.9"
+dependencies = ["openai>=1.40"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["mini_agent", "mini_agent.llm", "mini_agent.protocol", "mini_agent.tools", "mini_agent.session", "mini_agent.memory", "mini_agent.runtime", "mini_agent.machine", "mini_agent.review", "contracts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+# 真实模型 smoke 在 tests/live，只在 LIVE=1 时由 make test-live 单独跑
+addopts = "-q"

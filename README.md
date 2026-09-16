@@ -1,17 +1,17 @@
 # mini-agent
 
-从零实现的最小可用 Agent Runtime：loop / 工具注册 / 输出解析 / session / context 压缩 / trace。TypeScript，运行时依赖只有 OpenAI SDK（当 HTTP 客户端）。轮循环由状态表驱动，详见 `AGENTS.md`。
+从零实现的最小可用 Agent Runtime：loop / 工具注册 / 输出解析 / session / context 压缩 / trace。**这个分支（`agent-base-py`）是 Python 实现**（≥ 3.9，运行时依赖只有 openai SDK 当 HTTP 客户端），逐模块移植自 `main` 上的 TypeScript 版：同一套状态表、契约 JSON、答案卷、不变量与测试用例，`evals/judge.py` 与 `evals/live-trace/` 两边互读。轮循环由状态表驱动，详见 `AGENTS.md`。
 
-> **只想看最小 loop？** 三个文件够了：`contracts/turn.machine.ts`（循环的状态表，5 状态 × 6 事件）→ `src/runtime/agent.ts`（每步先 `interpret` 再执行副作用）→ `src/protocol/parser.ts`（模型输出怎么变成事件）。其余都是围绕这条 loop 的证明：契约、不变量、生成器、探索、证据。
+> **只想看最小 loop？** 三个文件够了：`contracts/turn_machine.py`（循环的状态表，5 状态 × 6 事件）→ `mini_agent/runtime/agent.py`（每步先 `interpret` 再执行副作用）→ `mini_agent/protocol/parser.py`（模型输出怎么变成事件）。其余都是围绕这条 loop 的证明：契约、不变量、生成器、探索、证据。
 
 ## 5 分钟体验（不用自己打字）
 
 ```bash
-npm ci && cp .env.example .env     # 填一个 OpenAI-compatible 的 key
-npm run demo
+make install && cp .env.example .env     # 填一个 OpenAI-compatible 的 key
+make demo
 ```
 
-固定几句话跑完 loop / 工具 / 两个窗口隔离 / 长期记忆 / 次日复盘，右侧实时回显每一次状态转移，数据落在临时目录。一次真实输出（deepseek-flash，全文在 `docs/evidence/demo/`）：
+固定几句话跑完 loop / 工具 / 两个窗口隔离 / 长期记忆 / 次日复盘，右侧实时回显每一次状态转移，数据落在临时目录。一次真实输出（deepseek-flash；TS 版全文在 `docs/evidence/demo/2026-09-15-deepseek-flash.txt`，Python 版全文在 `docs/evidence/demo/2026-09-16-py-deepseek-flash.txt`，格式相同）：
 
 ```
 你> 帮我算 (137*29+1234)/7 保留两位
@@ -34,14 +34,14 @@ review A 2026-09-16 Asia/Shanghai → ok（attempts=1, coverage=full, entries_wr
 delivered_to: w1
 ```
 
-没有 key 也能看：`npm test`（假模型，条数见 `docs/TEST_REPORT.md` §0）、`npm run review -- --user A --fake ok`（复盘三态）、`python3 evals/judge.py evals/live-trace`（对仓库里已提交的真实模型转移记录跑不变量）。
+没有 key 也能看：`make test`（假模型，条数见 `docs/TEST_REPORT.md` §0）、`make review ARGS="--user A --fake ok"`（复盘三态）、`python3 evals/judge.py evals/live-trace`（对仓库里已提交的真实模型转移记录跑不变量）。
 
 ## 运行
 
 ```bash
-npm ci
+make install                # = pip install -e ".[dev]"；用 uv：uv venv && uv pip install -e ".[dev]"，之后 make PY="uv run python" …
 cp .env.example .env        # 填任意 OpenAI-compatible 的 key；默认 DashScope qwen3-max，DeepSeek deepseek-flash 也实测通过
-npm run chat -- --user A --session w1
+make chat ARGS="--user A --session w1"      # 等价：python3 -m mini_agent.cli --user A --session w1
 ```
 
 - 同一 `--user` 开两个不同 `--session` 就是两个窗口，待办与历史互不可见；同一 `--session` 再进即接着聊。
@@ -52,10 +52,10 @@ npm run chat -- --user A --session w1
 ## 验证
 
 ```bash
-npm test                 # 全部单测，不需要 key；条数见 docs/TEST_REPORT.md §0
-npm run check            # typecheck + 契约漂移检查 + 单测
-npm run test:live        # 真实模型 5 个 smoke，需要 key
-bash scripts/gate.sh v0.3   # 一键门禁，证据落 docs/evidence/v0.3/（无 key 时 live 写 skipped）
+make test                 # 全部单测（pytest），不需要 key；条数见 docs/TEST_REPORT.md §0
+make check                # compileall + 契约漂移检查 + 单测
+make test-live            # 真实模型 5 个 smoke，需要 key（LIVE=1 python3 -m pytest tests/live）
+bash scripts/gate.sh v0.6-py   # 一键门禁，证据落 docs/evidence/v0.6-py/（无 key 时 live 写 skipped）
 ```
 
 ## 每日复盘
@@ -63,23 +63,24 @@ bash scripts/gate.sh v0.3   # 一键门禁，证据落 docs/evidence/v0.3/（无
 复盘（#19）不接真实 cron：触发 = 一条 CLI 子命令，外部 cron 调它；“至少一次”投递靠幂等键 `userId + date` 兜住（同一天重跑只把 `attempts` 加一，不重跑整合、不重写记忆、不重发）。
 
 ```bash
-npm run review -- --user A                                  # 复盘“昨天”；--date 缺省 = 任务时区的今天，--tz 缺省 Asia/Shanghai
-npm run review -- --user A --date 2026-09-15 --tz Asia/Shanghai --deliver w1   # 把 brief 追加进会话 w1
-npm run review -- --fake ok                                 # 无 key 也能跑：脚本化模型 + 临时数据目录，另有 --fake no_chat / --fake partial_read
-npm run review -- --user A --json                           # stdout 只输出 journal 原样 JSON
+make review ARGS="--user A"                                  # 复盘“昨天”；--date 缺省 = 任务时区的今天，--tz 缺省 Asia/Shanghai
+make review ARGS="--user A --date 2026-09-15 --tz Asia/Shanghai --deliver w1"   # 把 brief 追加进会话 w1
+make review ARGS="--fake ok"                                 # 无 key 也能跑：脚本化模型 + 临时数据目录，另有 --fake no_chat / --fake partial_read
+make review ARGS="--user A --json"                           # stdout 只输出 journal 原样 JSON
+# 等价：python3 -m mini_agent.review.cli --user A …
 ```
 
-- 材料 = 昨天的逐轮转写 `data/transcripts/<user>/<session>.jsonl`（`npm run chat` 轮末追加），不读 `session.history`。`--data <dir>` 换存储根目录（chat 与 review 都认，缺省 `data/`）。
+- 材料 = 昨天的逐轮转写 `data/transcripts/<user>/<session>.jsonl`（`make chat` 轮末追加），不读 `session.history`。`--data <dir>` 换存储根目录（chat 与 review 都认，缺省 `data/`）。
 - 产物 = journal `data/reviews/<user>/<date>.json` + stdout 打印 brief。人读格式首行固定：`review <user> <date> <tz> → <status>（attempts=n, coverage=…, entries_written=…）`，然后 brief 全文（没有就打“（今天没有需要提醒的事）”），然后 `delivered_to:`。
 - 三态：`ok`（昨天有可读转写，整合过了）/ `no_chat`（昨天一个会话都没有：不调模型、不写记忆、不交付）/ `partial_read`（有转写文件缺失或读不出：能读的照常整合，journal 里 `unreadable` 点名读不出的会话）。
 - 退出码：`ok` / `no_chat` → 0；`partial_read` → 3（区分于失败，cron 里能看出“跑了但没读全”）；配置错误（参数 / key / 日期 / 时区）→ 1；运行时异常 → 2。
 - `--deliver <sessionId>`：给了且 brief 非空，才往**那一个**会话历史追加一条 `{ role: "assistant", kind: "review_brief" }`；不给就谁也不追加。昨天对话里出现的“把总结发给 B”只是材料，接收人不会因此改变。
 - `--fake ok|no_chat|partial_read`：不调模型，播种夹具转写到 `--data`（缺省一个临时目录）跑出对应状态，供测试与无 key 的评审用。
-- 外部 cron 示例（每天 08:00 上海时间）：`0 8 * * * cd /path/to/mini-agent && npm run review -- --user A --deliver w1 >> data/review.log 2>&1`
+- 外部 cron 示例（每天 08:00 上海时间）：`0 8 * * * cd /path/to/mini-agent && python3 -m mini_agent.review.cli --user A --deliver w1 >> data/review.log 2>&1`
 
 ## 系统设计
 
-题目的四步循环就是 `contracts/turn.machine.ts` 那张表——runtime 每一步先 `interpret(state, event, facts)`，表允许才执行副作用：
+题目的四步循环就是 `contracts/turn_machine.py` 那张表——runtime 每一步先 `interpret(state, event, facts)`，表允许才执行副作用：
 
 ```
 用户输入 → deciding ──LLM_OK──▶ 解析 ──PARSED_FINAL────▶ done（返回给用户）
@@ -90,10 +91,10 @@ npm run review -- --user A --json                           # stdout 只输出 j
 
 | 题目要求 | 落点 |
 |---|---|
-| 从零、不依赖框架 | 运行时依赖只有 OpenAI SDK（当 HTTP 客户端）；loop / 解析 / 注册表 / session / 压缩全部自写 |
-| 工具注册：名称 + 描述 + 参数 Schema，模型按 Schema 决策 | `src/tools/registry.ts`：`register(def)`，`specs()` 拼进 system prompt，`invoke()` 先校验 Schema（必填 / 类型 / 未知字段 / 枚举）再执行，结果经工具自己的 `compact` 精简、`redact` 脱敏后回填 |
-| 至少三个工具 | calculator（白名单字符，不 eval 任意代码）、search（mock 语料）、todo（挂在 session 上的有状态工具）、remember（写用户级记忆） |
-| 解析思考 / 工具调用 / 最终答案 | `src/protocol/parser.ts`：`<think>` `<tool_call>{json}` `<final>` 三段协议；只认开标签、JSON 靠配平大括号截取；接住真实模型实测的六种偏差（`<invoke>` 别名、裸 JSON、`<tool_code>` 外包、`<function=…>` 变体、闭合写成开标签、`<final>` 重复/无闭合）；解析错误回喂模型自纠，永不抛异常 |
+| 从零、不依赖框架 | 运行时依赖只有 openai SDK（当 HTTP 客户端）；loop / 解析 / 注册表 / session / 压缩全部自写，标准库之外没有别的运行时依赖 |
+| 工具注册：名称 + 描述 + 参数 Schema，模型按 Schema 决策 | `mini_agent/tools/registry.py`：`register(ToolDefinition)`，`specs()` 拼进 system prompt，`invoke()` 先校验 Schema（必填 / 类型 / 未知字段 / 枚举）再执行，结果经工具自己的 `compact` 精简、`redact` 脱敏后回填 |
+| 至少三个工具 | calculator（白名单字符 + `ast` 只放行算术节点，不 eval 任意代码）、search（mock 语料）、todo（挂在 session 上的有状态工具）、remember（写用户级记忆） |
+| 解析思考 / 工具调用 / 最终答案 | `mini_agent/protocol/parser.py`：`<think>` `<tool_call>{json}` `<final>` 三段协议；只认开标签、JSON 靠配平大括号截取；接住真实模型实测的六种偏差（`<invoke>` 别名、裸 JSON、`<tool_code>` 外包、`<function=…>` 变体、闭合写成开标签、`<final>` 重复/无闭合）；解析错误回喂模型自纠，永不抛异常 |
 | 原生 function calling | `--native-tools`：厂商 `tool_calls` 转成同一套标签走同一条解析路径 |
 | session：用户 A 两个窗口独立、随时接着聊 | `(userId, sessionId)` 定位一个会话；历史、有状态工具的数据袋、轮次计数都在会话上；文件存储每会话一个 JSON，重进即续 |
 | 最大轮次 | 两层：一次输入内最多 8 次模型决策（安全阀，到顶交还最近三条工具结果）；会话历史超 40 条或 12k 字符触发压缩；system prompt 里的记忆块另有 1200 字符上限（见“Context 与 memory”） |
@@ -102,25 +103,25 @@ npm run review -- --user A --json                           # stdout 只输出 j
 
 ## Context 与 memory：放什么、何时召回、放在哪
 
-**进 context 的**（每次模型调用的消息列表，`src/session/context.ts::assembleMessages`）：
+**进 context 的**（每次模型调用的消息列表，`mini_agent/session/context.py::assemble_messages`）：
 
 1. system prompt：角色 + 协议 + 规则 + 工具清单（含 Schema 原文）+ **用户级记忆块**（有上限，见下）
 2. 压缩摘要（如果有）：一条 system 消息“此前对话摘要”
 3. 会话历史：用户输入、模型的工具调用文本、**精简后的**工具结果、最终答案
 4. 本轮消息：本轮全部往返，含当轮的 `<think>`
 
-**不进的**：历史轮的思考过程——轮次结束时剥掉（`stripThink`），它只对当轮有用；工具结果的原文超过 1500 字符的部分。
+**不进的**：历史轮的思考过程——轮次结束时剥掉（`strip_think`），它只对当轮有用；工具结果的原文超过 1500 字符的部分。
 
 **压缩**（题目要的“基础压缩”）：历史超阈值时，保留最近 12 条原文，切点回退到 user 消息（不把一轮 tool_call / tool 从中间切断），更老的部分让模型压成 ≤200 字要点（累积在会话上）；模型失败退回规则压缩（保留用户原话 + 答案首句）。追问仍能接上，因为最近几轮原文都在。
 
-**预算是两个独立上限，不是一个总预算**（`src/session/context.ts::ContextOptions`）：
+**预算是两个独立上限，不是一个总预算**（`mini_agent/session/context.py::ContextOptions`）：
 
 | 上限 | 默认 | 超了怎么办 |
 |---|---|---|
-| 历史：`maxHistoryMessages` / `maxHistoryChars` | 40 条 / 12k 字符 | `needsCompaction` 只量 `session.history`，触发上面的压缩 |
-| 记忆块：`memoryMaxChars` | 1200 字符（= 历史阈值的 10%） | `renderMemory` 按写入顺序保留最新的条目，截掉最老的；trace 记一条 `memory_truncated` warning |
+| 历史：`max_history_messages` / `max_history_chars` | 40 条 / 12k 字符 | `needs_compaction` 只量 `session["history"]`，触发上面的压缩 |
+| 记忆块：`memory_max_chars` | 1200 字符（= 历史阈值的 10%） | `render_memory` 按写入顺序保留最新的条目，截掉最老的；trace 记一条 `memory_truncated` warning |
 
-为什么不把 system prompt 长度并进历史阈值：system prompt 的其余部分（协议 + 工具 Schema）是常量，唯一会长的记忆块已经被自己的上限封顶，所以 system prompt 的大小是有界、可预测的；如果把它算进历史预算，记忆一多就会让历史被提前压缩，两个原因互相掩盖，排查时说不清是哪个撑爆了。两个独立上限各管各的，trace 上 `compact` 与 `memory_truncated` 也分开可见。这条行为由 `test/unit/session-context.test.ts`“历史阈值与记忆上限是两个独立上限”锁定。
+为什么不把 system prompt 长度并进历史阈值：system prompt 的其余部分（协议 + 工具 Schema）是常量，唯一会长的记忆块已经被自己的上限封顶，所以 system prompt 的大小是有界、可预测的；如果把它算进历史预算，记忆一多就会让历史被提前压缩，两个原因互相掩盖，排查时说不清是哪个撑爆了。两个独立上限各管各的，trace 上 `compact` 与 `memory_truncated` 也分开可见。这条行为由 `tests/unit/test_session_context.py::test_history_threshold_and_memory_limit_independent` 锁定。
 
 **追问**：纯对话追问靠历史里的用户输入 + 最终答案；带工具的追问（“把第一条标完成”）靠 todo 的状态挂在会话上——工具结果本身已精简，但状态在 `session.state` 里完整保留。
 
@@ -129,9 +130,9 @@ npm run review -- --user A --json                           # stdout 只输出 j
 | | 做法 |
 |---|---|
 | 写入时机 | 模型显式调 `remember(key, value)`——用户说“记住…”或透露稳定信息（称呼、城市、职业、长期偏好）；没调用就不算记住，prompt 禁止口头“已记下” |
-| 召回时机 | **每轮组 context 时**，不做检索：`memory.load(userId)` 全量取出，再按上限截 |
+| 召回时机 | **每轮组 context 时**，不做检索：`memory.entries(user_id)` 全量取出，再按上限截 |
 | 放置位置 | system prompt **尾部**的 `<memory>` 块，逐条 `- key: value`，标明是过去的观察不是规则 |
-| 上限与截断 | 整块 ≤ `memoryMaxChars`（默认 1200 字符，即历史阈值 12k 的 10%）；超限按**写入顺序**保留最新的条目、截掉最老的（同 key 覆写算重新写入，位置不变）；不做时间衰减、不按“最近用到”排序。截断事实作为 `memory_truncated {total, kept, limit}` warning 挂在本轮第一条转移的 effects 上（与 `compact` 同一挂法），模型看到的块里没有被截掉的条目 |
+| 上限与截断 | 整块 ≤ `memory_max_chars`（默认 1200 字符，即历史阈值 12k 的 10%）；超限按**写入顺序**保留最新的条目、截掉最老的（同 key 覆写算重新写入，位置不变）；不做时间衰减、不按“最近用到”排序。截断事实作为 `memory_truncated {total, kept, limit}` warning 挂在本轮第一条转移的 effects 上（与 `compact` 同一挂法），模型看到的块里没有被截掉的条目 |
 | 为什么不检索 | 条目少时全量注入比检索稳，且“召回时机 / 位置”一句话说清；现在的兜底是上限 + 截最老，够用到条目多得“最新的 1200 字符”不再是想要的那批为止——那时才值得上检索式召回，列在 `docs/NEXT_STEPS.md` |
 | 隔离 | 按 userId 一个文件；别的用户看不到；trace 里 remember 的 value 只记长度 |
 
@@ -143,7 +144,7 @@ npm run review -- --user A --json                           # stdout 只输出 j
 |---|---|---|---|
 | 模块一 · 首 token 压到 2 秒 | workflow | 三条泳道（客户端/应用后端 · 模型侧 · 三个杠杆）；少发、早发、选对模型三个杠杆分别落在哪一段 | `q1-ttft.workflow.json` · `q1-ttft.html` |
 | 模块二 · 重复提问时的记忆召回 | workflow | 用户 / Agent / 用户级记忆三道：召回三样 → 过否决权 → 先问一句 → 纠正即写回 | `q2-memory-recall.workflow.json` · `q2-memory-recall.html` |
-| 模块三 · 每天 9 点复盘 | lifecycle | 就是 `contracts/review.machine.ts`：scheduled → collecting → consolidating → presenting → delivered，三个出口（skipped_no_chat / failed_partial / 幂等重放）分开画 | `q3-daily-review.lifecycle.json` · `q3-daily-review.html` |
+| 模块三 · 每天 9 点复盘 | lifecycle | 就是 `contracts/review_machine.py`：scheduled → collecting → consolidating → presenting → delivered，三个出口（skipped_no_chat / failed_partial / 幂等重放）分开画 | `q3-daily-review.lifecycle.json` · `q3-daily-review.html` |
 | 模块四 · busy 时收到新消息 / 异步结果 | sequence | 中途消息进收件箱并带插入时机标注，TOOLS_DONE 之后、下次模型调用之前一次投递；轮结束后的晚到事件由会话表接 | `q4-busy-inbox.sequence.json` · `q4-busy-inbox.html` |
 | 模块五 · 两种工具协议 | architecture | 文本标签经 parser、原生 tool_calls 经 adapter，收敛成同一形状的 ParsedOutput 再过转移闸；历史回放时按协议映射、对不上位的降级为 user | `q5-tool-protocols.architecture.json` · `q5-tool-protocols.html` |
 

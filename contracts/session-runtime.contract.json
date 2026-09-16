@@ -85,7 +85,7 @@
       "reason": "#19 ⑦：复盘触发时用户正在聊 → 排队到本轮结束后执行，不打断本轮（单进程 CLI 不可达，表已建模、运行时不接）",
       "priority": "P1",
       "covered_by": [
-        "test/unit/contracts.test.ts::session-runtime（#19 ⑦ Q4）：busy + ASYNC_DONE → queued、idle + ASYNC_DONE → executing、queued + TURN_DONE → executing 三格 allowed；busy + INPUT 仍 declared_unknown；运行时不接"
+        "tests/unit/test_contracts.py::test_session_runtime_q4_three_cells_allowed"
       ],
       "effects": []
     },
@@ -101,7 +101,7 @@
       "reason": "#19 ⑦：空闲时复盘触发 → 立即执行（单进程 CLI 不可达，表已建模、运行时不接）",
       "priority": "P1",
       "covered_by": [
-        "test/unit/contracts.test.ts::session-runtime（#19 ⑦ Q4）：busy + ASYNC_DONE → queued、idle + ASYNC_DONE → executing、queued + TURN_DONE → executing 三格 allowed；busy + INPUT 仍 declared_unknown；运行时不接"
+        "tests/unit/test_contracts.py::test_session_runtime_q4_three_cells_allowed"
       ],
       "effects": []
     },
@@ -117,7 +117,7 @@
       "reason": "#19 ⑦：本轮结束，执行排队的复盘（单进程 CLI 不可达，表已建模、运行时不接）",
       "priority": "P1",
       "covered_by": [
-        "test/unit/contracts.test.ts::session-runtime（#19 ⑦ Q4）：busy + ASYNC_DONE → queued、idle + ASYNC_DONE → executing、queued + TURN_DONE → executing 三格 allowed；busy + INPUT 仍 declared_unknown；运行时不接"
+        "tests/unit/test_contracts.py::test_session_runtime_q4_three_cells_allowed"
       ],
       "effects": []
     },
@@ -199,7 +199,7 @@
       "priority": "P1",
       "status": "planned",
       "evidence": [],
-      "note": "单进程 CLI 串行 for-await，天然成立；#19 ⑦ 的 busy / idle + ASYNC_DONE 与 queued + TURN_DONE 三格已在表里建模（queued / executing），但单进程 CLI 不可达、运行时不接；多进程 / HTTP 服务时需要锁（NEXT_STEPS 4、10）"
+      "note": "单进程 CLI 串行读 stdin，天然成立；#19 ⑦ 的 busy / idle + ASYNC_DONE 与 queued + TURN_DONE 三格已在表里建模（queued / executing），但单进程 CLI 不可达、运行时不接；多进程 / HTTP 服务时需要锁（NEXT_STEPS 4、10）"
     }
   ],
   "cells": {

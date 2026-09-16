@@ -35,7 +35,7 @@ verdict: 判定级 allowed / blocked / noop / unknown —— rejected 行命中�
 rows:    每行显式 id（t-llm-ok 风格，定义期查重）；答案卷 / trace / journeys.json 都用行 id
 ```
 
-每条 P0 行带 `covered_by: ['test/unit/<file>::<测试名>']`；enforced 不变量带 `evidence`，planned 不变量带 `note`。
+每条 P0 行带 `covered_by: ['tests/unit/<file>::<测试名>']`；enforced 不变量带 `evidence`，planned 不变量带 `note`。
 
 ## §4 打点
 
@@ -45,14 +45,14 @@ rows:    每行显式 id（t-llm-ok 风格，定义期查重）；答案卷 / tr
 
 ## §5 自动 E2E
 
-`reachable('deciding')` 给出所有可达行；生成器把每条路径展开成“FakeLLM 脚本 → 期望行 id 序列（答案卷）”；测试断言 trace 里的转移序列 == 答案卷，且每条 P0 行的 `covered_by` 在盘上找得到。答案卷另落盘为 `contracts/journeys.json`，`src/machine/check.ts::checkJourney` 吃 trace 行答 passed / failed(closest) / not_observed（人、AI、测试同一个函数）。模型层另有随机探索（`src/machine/explore.ts`：种子游走 + 通用不变量 + ddmin），三张表都跑。
+`reachable('deciding')` 给出所有可达行；生成器把每条路径展开成“FakeLLM 脚本 → 期望行 id 序列（答案卷）”；测试断言 trace 里的转移序列 == 答案卷，且每条 P0 行的 `covered_by` 在盘上找得到。答案卷另落盘为 `contracts/journeys.json`，`mini_agent/machine/check.py::checkJourney` 吃 trace 行答 passed / failed(closest) / not_observed（人、AI、测试同一个函数）。模型层另有随机探索（`mini_agent/machine/explore.py`：种子游走 + 通用不变量 + ddmin），三张表都跑。
 
 ## §6 切片与验收
 
 | 切片 | 内容 | 绿 = |
 |---|---|---|
 | S0 | 解释器移植 + 单测 | 未列组合 unknown、guard 顺序、enumerate、reachable、toContract 确定性 |
-| S1 | `contracts/turn.machine.ts` + 生成 `turn.contract.json` + 漂移测试 | `contracts:check` 0 漂移；reachable 无不可达状态 |
+| S1 | `contracts/turn_machine.py` + 生成 `turn.contract.json` + 漂移测试 | `contracts:check` 0 漂移；reachable 无不可达状态 |
 | S2 | 循环改为表驱动（闸）；trace 改为转移记录 | 既有 36 条单测 + 5 条 live 全绿不改断言；trace 序列测试改为对答案卷 |
 | S3 | 生成器 + covered_by 对账 | 生成集合 ⊆ 手写覆盖；缺项红一次再补 |
 | S4 | 四条 P0 不变量的 oracle 测试 | 每条一红一绿；④ 三处对齐用 FileSessionStore + FileTraceSink 真落盘验 |
@@ -75,8 +75,8 @@ rows:    每行显式 id（t-llm-ok 风格，定义期查重）；答案卷 / tr
 
 ## §9 实施状态（2026-09-15 追加）
 
-S0–S6 全部落地，`npm run check` 全绿。单测条数与真实模型 live 结果以 `docs/TEST_REPORT.md` §0 / §3 为唯一事实源（本节不再另写数字）。
+S0–S6 全部落地，`make check` 全绿。单测条数与真实模型 live 结果以 `docs/TEST_REPORT.md` §0 / §3 为唯一事实源（本节不再另写数字）。
 
 **v0.2（issue #5，2026-09-15）**：行 id / request_id / rejected→blocked / planned note / redact / 答案卷落盘 / 随机探索 / 变异 / 门禁与七章节文档全部落地；门禁数字见 `docs/TEST_REPORT.md` §7，证据在 `docs/evidence/v0.2/`。
 
-**v0.3（issue #8，2026-09-15）**：第 ⑤ 条 P0 不变量 `effects_declared`（副作用对账，按行 id）、trace 证据离线 oracle（`src/machine/evidence.ts`，live 收尾也过）、条数单一事实源；门禁数字见 `docs/TEST_REPORT.md` §8，证据在 `docs/evidence/v0.3/`。入口见 `AGENTS.md`，逐条证据见 `docs/TEST_REPORT.md`，剩余项见 `docs/NEXT_STEPS.md`。规格未写死而由实现补的判断（compact 挂哪条转移、unknown 默认处理、runner 协议）记录在 `AI-LOG.md` §3。
+**v0.3（issue #8，2026-09-15）**：第 ⑤ 条 P0 不变量 `effects_declared`（副作用对账，按行 id）、trace 证据离线 oracle（`mini_agent/machine/evidence.py`，live 收尾也过）、条数单一事实源；门禁数字见 `docs/TEST_REPORT.md` §8，证据在 `docs/evidence/v0.3/`。入口见 `AGENTS.md`，逐条证据见 `docs/TEST_REPORT.md`，剩余项见 `docs/NEXT_STEPS.md`。规格未写死而由实现补的判断（compact 挂哪条转移、unknown 默认处理、runner 协议）记录在 `AI-LOG.md` §3。

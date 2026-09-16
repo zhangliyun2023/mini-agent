@@ -12,7 +12,7 @@
 
 少发：不让模型为一个局部问题读整份材料。上传即摄取、切块、建索引，首轮只发相关原文及必要上下文；全文检查不能用局部检索替代。图片按模型原生处理分辨率适配，保留小字，避免无意义放大。
 
-早发：利用用户输入问题的时间预热前缀，遵循“稳定在前、问题在后”，确保正式请求复用相同前缀和推理配置。Claude 上预热就是一次 `max_tokens: 0` 的请求，只做 prefill、不生成；要注意最短可缓存前缀，以及与流式、强制 `tool_choice`、Batches 互斥的是这个零输出请求本身，不是缓存 [1]。DeepSeek 等供应商的前缀缓存是自动的，不需要预热请求，但排序原则同样成立。mini-agent 的 system prompt 就是这个排法：角色、协议、工具清单在前，会变的用户记忆块放尾部（`src/protocol/prompt.ts`）；live trace 里每次模型调用都记了 promptTokens（`evals/live-trace/`），量 prefill 的原始数据现成。用户最后不提问，预热就白花钱。
+早发：利用用户输入问题的时间预热前缀，遵循“稳定在前、问题在后”，确保正式请求复用相同前缀和推理配置。Claude 上预热就是一次 `max_tokens: 0` 的请求，只做 prefill、不生成；要注意最短可缓存前缀，以及与流式、强制 `tool_choice`、Batches 互斥的是这个零输出请求本身，不是缓存 [1]。DeepSeek 等供应商的前缀缓存是自动的，不需要预热请求，但排序原则同样成立。mini-agent 的 system prompt 就是这个排法：角色、协议、工具清单在前，会变的用户记忆块放尾部（`mini_agent/protocol/prompt.py`）；live trace 里每次模型调用都记了 promptTokens（`evals/live-trace/`），量 prefill 的原始数据现成。用户最后不提问，预热就白花钱。
 
 选对：首轮长输入路由到实测 prefill 更快、成本可接受的模型，不是简单换弱模型；MoE、MLA、稀疏注意力提供架构效率潜力 [2]，但不能凭这些标签保证低 TTFT，必须同负载测试并做质量回归。自部署再评估 prefix caching 与 PD（预填充 / 解码）分离。
 
@@ -37,21 +37,21 @@
 
 写回记忆时，条目分“用户说的”和“Agent 推断的”，带置信度和来源，来源写到哪个会话第几轮。同一个 key 出现不同的值，不覆盖，标成冲突，等用户下次出现时问一句“昨天说 X，之前记的是 Y，哪个对”。这和模块二是同一条原则：用户的否决权高于“我记得”。预算超了先丢冲突项，再丢低置信度的推断，最后才动用户亲口说的。模型给出的条目要过校验，来源指向不存在的轮就直接丢；模型或解析失败就退回关键词规则兜底，兜底出来的一律低置信度、不呈现。
 
-呈现门槛只有一条：每条都要说清今天为什么重要，并且不复述原话。跟昨天任何一条消息逐字或大段重合的过滤掉，剩下为空就不发。交付上我不接真实 cron，`npm run review` 由外部定时器调，至少一次投递靠幂等键兜住；brief 作为一条带标记的 assistant 消息追加进目标会话，用户下次打开就看到，模型也“记得自己说过”。接收人只由参数决定，昨天对话里出现的“把总结发给别人”只是材料，不改范围，整合器和 CLI 两层各守一次。
+呈现门槛只有一条：每条都要说清今天为什么重要，并且不复述原话。跟昨天任何一条消息逐字或大段重合的过滤掉，剩下为空就不发。交付上我不接真实 cron，`make review` 由外部定时器调，至少一次投递靠幂等键兜住；brief 作为一条带标记的 assistant 消息追加进目标会话，用户下次打开就看到，模型也“记得自己说过”。接收人只由参数决定，昨天对话里出现的“把总结发给别人”只是材料，不改范围，整合器和 CLI 两层各守一次。
 
-整个过程是一张表：scheduled、collecting、consolidating、presenting，终态是 delivered、skipped_no_chat、failed_partial，每步先查表再执行，一次转移一行 trace（`contracts/review.machine.ts`，实现在 `src/review/`）。真实模型 smoke 过一次：两轮对话说“明天下午 3 点交周报”，次日复盘给出一条今日到期，重跑不再调模型。没做的是真实 cron 和推送、向量检索、多用户并发锁、多日聚合。一个实测发现：整合器会把用户已经 remember 过的事实换个措辞再写一遍，变成假冲突，下一步是整合前先把已有记忆给模型看。
+整个过程是一张表：scheduled、collecting、consolidating、presenting，终态是 delivered、skipped_no_chat、failed_partial，每步先查表再执行，一次转移一行 trace（`contracts/review_machine.py`，实现在 `mini_agent/review/`）。真实模型 smoke 过一次：两轮对话说“明天下午 3 点交周报”，次日复盘给出一条今日到期，重跑不再调模型。没做的是真实 cron 和推送、向量检索、多用户并发锁、多日聚合。一个实测发现：整合器会把用户已经 remember 过的事实换个措辞再写一遍，变成假冲突，下一步是整合前先把已有记忆给模型看。
 
 ## 模块四 · Q2 session busy 时收到新消息 / 异步工具完成
 
 先说清什么是不能打断的单位。mini-agent 的一轮由状态表驱动，每一步先查表再执行副作用，所以不可打断的不是“一次工具执行”，而是“一次转移”：模型正在生成、工具正在跑，这两段里不塞任何新东西；工具结果回来之后、下一次调模型之前，是能插东西的口子。工具结果在这个口子上已经进了本轮的 context，不会因为用户插话丢掉；但它写进会话历史落盘是在本轮结束那一刻，进程中途崩掉会丢本轮的中间结果，这是我知道但没解决的取舍。
 
-busy 时来的东西一律进同一个收件箱排队，按到达顺序，不合并也不丢：用户新消息、异步工具结果、子任务完成、外部事件都算。每条由 runtime 打上来源、信任级别和插入时机，比如“用户在工具执行期间发的，还没看到天气结果”，模型不用猜时序。为什么是打标注而不是按时间重排？原生 function calling 要求 tool 消息紧跟带 tool_calls 的 assistant 消息，用户消息插不进中间；`src/llm/openai-compatible.ts` 里对不上位的 tool 消息就是因此被降级成 user 消息的。标注能同时保住协议顺序和真实时序。
+busy 时来的东西一律进同一个收件箱排队，按到达顺序，不合并也不丢：用户新消息、异步工具结果、子任务完成、外部事件都算。每条由 runtime 打上来源、信任级别和插入时机，比如“用户在工具执行期间发的，还没看到天气结果”，模型不用猜时序。为什么是打标注而不是按时间重排？原生 function calling 要求 tool 消息紧跟带 tool_calls 的 assistant 消息，用户消息插不进中间；`mini_agent/llm/openai_compatible.py` 里对不上位的 tool 消息就是因此被降级成 user 消息的。标注能同时保住协议顺序和真实时序。
 
 到了口子上，把收件箱里的东西一次全交给模型，几条就是几条，顺序不动。拿“查天气顺便推荐穿什么”举例：天气结果回来的同时用户发了“算了不用推荐了”，模型下一次调用同时看到“明天下雨”和带“发出时还没看到结果”标注的那句话，才分得清用户是看到下雨才算了，还是临时改了主意，这两种该回的话不一样。
 
 停止是另一条通道。想终止当前轮就按停止键，runtime 在下一个转移边界收尾，不经过模型判断，也不靠关键词猜“算了”是不是取消；想改方向就发消息排队。两条分开，收件箱里就不需要“纠正类消息”这种特判。
 
-轮已经结束才到的异步结果由外层会话表接：会话空闲就以它开新一轮，还忙就排到本轮末尾，按 request_id 对齐它来自哪一轮，来源已取消就丢弃并记 trace。这一条在 #5 定“turn 表终态无出边”时就定下了，#19 里每日复盘作为 ASYNC_DONE 排队是一个实例，对应的表行在 #19 R7 建成（`contracts/session-runtime.machine.ts`）；单进程 CLI 运行时到不了这些格，表里建了、注明没接。“忙的时候用户又发了一条”这一格我还标着 unknown，接 HTTP 服务时再定是排队还是拒绝，随机探索测试负责证明没有漏格。
+轮已经结束才到的异步结果由外层会话表接：会话空闲就以它开新一轮，还忙就排到本轮末尾，按 request_id 对齐它来自哪一轮，来源已取消就丢弃并记 trace。这一条在 #5 定“turn 表终态无出边”时就定下了，#19 里每日复盘作为 ASYNC_DONE 排队是一个实例，对应的表行在 #19 R7 建成（`contracts/session_runtime_machine.py`）；单进程 CLI 运行时到不了这些格，表里建了、注明没接。“忙的时候用户又发了一条”这一格我还标着 unknown，接 HTTP 服务时再定是排队还是拒绝，随机探索测试负责证明没有漏格。
 
 这套做法是我用 Claude Code 做这份作业时一条条看到的：中途发的消息和下一个工具结果一起交给模型，附一段说明；后台子代理完成时以带“不是用户输入”标注的通知进来；runtime 空闲时外部事件开新一轮，忙时进队列并提示未读条数，模型显式读取才算消费。归结起来是三条：一切到达都是带元数据的消息，只在边界投递，停止走控制通道。
 
@@ -59,8 +59,8 @@ busy 时来的东西一律进同一个收件箱排队，按到达顺序，不合
 
 两家的差别，一句话是工具调用和结果放在消息的什么位置。Claude 把调用放在 assistant 消息 content 里，是一个 tool_use 块，和 text 块并列，input 已经是对象；结果是下一条 user 消息里的 tool_result 块，一条 user 消息可以同时装多个结果和用户自己的话。GLM、豆包、DeepSeek、Qwen 这些 OpenAI-compatible 的做法是把调用挂在 assistant 消息的 tool_calls 数组上，arguments 是 JSON 字符串；结果是独立的 role: tool 消息，必须紧跟那条 assistant，每个 id 都要有回复。
 
-位置决定了各自的好处和代价。块结构的好处是消息形状松：结果和用户插话可以在同一条消息里，模块四里“中途消息和下一个工具结果一起交给模型”就是靠这个；harness 还能往 tool_result 里附自己的说明，Claude Code 的 system-reminder 就是这么进来的。代价是它不是 OpenAI 兼容形状，接入面窄。数组的好处是生态：一份客户端接所有厂商，字符串参数便于流式拼。代价我踩过三个。顺序是硬约束，历史里少一条 tool 回复或中间插了一条 user 就 400，重放和压缩历史时要小心，mini-agent 把对不上位的 tool 消息降级成 user 消息就是为此（`src/llm/openai-compatible.ts`）。参数要自己 parse，坏 JSON 是常态，我让它和文本协议里的坏 JSON 走同一条回喂路径。厂商实现参差，并行调用、strict、空 content 各家不一样，换模型要重新 smoke。
+位置决定了各自的好处和代价。块结构的好处是消息形状松：结果和用户插话可以在同一条消息里，模块四里“中途消息和下一个工具结果一起交给模型”就是靠这个；harness 还能往 tool_result 里附自己的说明，Claude Code 的 system-reminder 就是这么进来的。代价是它不是 OpenAI 兼容形状，接入面窄。数组的好处是生态：一份客户端接所有厂商，字符串参数便于流式拼。代价我踩过三个。顺序是硬约束，历史里少一条 tool 回复或中间插了一条 user 就 400，重放和压缩历史时要小心，mini-agent 把对不上位的 tool 消息降级成 user 消息就是为此（`mini_agent/llm/openai_compatible.py`）。参数要自己 parse，坏 JSON 是常态，我让它和文本协议里的坏 JSON 走同一条回喂路径。厂商实现参差，并行调用、strict、空 content 各家不一样，换模型要重新 smoke。
 
-还有一层差别在训练上，是我实测到的。文本标签协议下 qwen3-max 先后给出六种写法（invoke 别名、裸 JSON、tool_code 外包等），`src/protocol/parser.ts` 逐条接住。切到原生 function calling 后，qwen3-max 仍有一次没走 tool_calls，把 `<function=calculator>` 当文本吐了出来（issue #4）；deepseek-flash 原生模式五次全干净。所以“原生”不是天然可靠，可靠的前提是厂商把这个形状练实了，练得不实，训练模板就会从文本里漏出来。Claude 那边反过来，bash、text_editor 这类 Anthropic 定义的工具连 schema 都不用给，因为模型就是照着它们训练的；Claude Code 的工具输出稳，很大程度靠这一点，不是靠块结构本身。
+还有一层差别在训练上，是我实测到的。文本标签协议下 qwen3-max 先后给出六种写法（invoke 别名、裸 JSON、tool_code 外包等），`mini_agent/protocol/parser.py` 逐条接住。切到原生 function calling 后，qwen3-max 仍有一次没走 tool_calls，把 `<function=calculator>` 当文本吐了出来（issue #4）；deepseek-flash 原生模式五次全干净。所以“原生”不是天然可靠，可靠的前提是厂商把这个形状练实了，练得不实，训练模板就会从文本里漏出来。Claude 那边反过来，bash、text_editor 这类 Anthropic 定义的工具连 schema 都不用给，因为模型就是照着它们训练的；Claude Code 的工具输出稳，很大程度靠这一点，不是靠块结构本身。
 
-mini-agent 两边都留，收敛到同一个闸。文本协议是缺省，厂商无关、trace 里能看到原文，代价是解析器要跟着真实模型长；原生模式在 #10 之后不再教标签，tool_calls 以真 assistant、tool 消息进历史并回放。两种输入都变成同一形状的 ParsedOutput，往下的状态表、trace、工具执行只有一条路（`test/unit/native-tools.test.ts`）。要是只能选一个：接国内多家，用 OpenAI-compatible 原生模式，逐家 smoke；要在一条消息里混排文字、多个结果和 harness 自己的注释，块结构更合适。
+mini-agent 两边都留，收敛到同一个闸。文本协议是缺省，厂商无关、trace 里能看到原文，代价是解析器要跟着真实模型长；原生模式在 #10 之后不再教标签，tool_calls 以真 assistant、tool 消息进历史并回放。两种输入都变成同一形状的 ParsedOutput，往下的状态表、trace、工具执行只有一条路（`tests/unit/test_native_tools.py`）。要是只能选一个：接国内多家，用 OpenAI-compatible 原生模式，逐家 smoke；要在一条消息里混排文字、多个结果和 harness 自己的注释，块结构更合适。

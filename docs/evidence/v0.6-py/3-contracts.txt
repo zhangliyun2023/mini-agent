@@ -1,0 +1,6 @@
+# 2026-09-15T22:17:02-06:00 python=Python 3.9.6 commit=7245094 label=v0.6-py cmd: make -s contracts-check
+✓ contracts/review.contract.json 无漂移
+✓ contracts/session.contract.json 无漂移
+✓ contracts/session-runtime.contract.json 无漂移
+✓ contracts/turn.contract.json 无漂移
+exit 0 (expected 0)

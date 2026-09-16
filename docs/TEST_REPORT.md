@@ -1,48 +1,52 @@
-# TEST_REPORT — mini-agent（2026-09-15；v0.2 一节见 §7，v0.3 一节见 §8）
+# TEST_REPORT — mini-agent（Python 版分支 `agent-base-py`，2026-09-16；§1 起的运行历史 v0.2–v0.5 记录在 `main` 的 TypeScript 实现上）
 
 对标 `docs/standards/2026-09-01-ai时代软件状态机测试与可观测性.md` §13 与 §17.1：**分层写，不把前一层冒充后一层**。
 
-## 0. 实跑输出
+**本分支的口径**：Python 版是 TS 版的逐模块移植——同一套状态表、契约 JSON（结构逐字节相同，只有 `covered_by` / `evidence` 指向的测试名换成 pytest 名）、答案卷、不变量 oracle、测试用例（逐条改写为 pytest，多两条 Python 原生错误形状的分类用例）。§0 是 Python 版的实跑数字；§1–§10 的文字与 `docs/evidence/t*/`、`v0.*/` 目录是 TS 版各轮留下的证据，路径已按映射改名但**数字与红检输出是当时 TS 版跑出的**，不冒充 Python 版跑过。Python 版自己的门禁证据在 `docs/evidence/v0.6-py/`。
+
+## 0. 实跑输出（Python 版）
 
 | 命令 | 结果 | 备注 |
 |---|---|---|
-| `npm run typecheck` | 通过 | `tsc --noEmit`，含 `contracts/` `scripts/` |
-| `npm run contracts:check` | 4 份契约 0 漂移 | turn / session / session-runtime / review |
-| `npm test` | **27 文件 250 条全绿**（#19 R7 复盘状态表 + R8 CLI 后；R6 后 24 文件 224 条；R1–R5 后 22 文件 205 条） | 不需要 key。**逐文件条数只写在下面这张表里**，`test/unit/docs.test.ts` 用源码静态计数逐文件对账 |
-| `npm run test:live` | **5/5**（v0.3，UTC 06:27，18.4s）；afterAll 不变量检查真跑：7 文件 / 9 轮 / 42 条转移，25 allowed + 17 noop，0 unknown，0 违反 | 本机有 key；详见 §3 与 §8 |
+| `make typecheck` | 通过 | `python -m compileall`，含 `contracts/` `scripts/` `tests/` `evals/` |
+| `make contracts-check` | 4 份契约 0 漂移 | turn / session / session-runtime / review；与 `main` 上 TS 生成的 JSON 只差 covered_by / evidence 的测试名与一处 reason 措辞（`deliverTo` → `deliver_to`） |
+| `make test` | **27 文件 252 条全绿** | 不需要 key。**逐文件条数只写在下面这张表里**，`tests/unit/test_docs.py` 用源码静态计数逐文件对账 |
+| `make test-live` | **5/5 场景 + 收尾不变量检查通过**（deepseek-flash，2026-09-16 04:17Z；7 文件 / 9 轮 / 39 条转移，23 allowed + 16 noop，0 unknown，0 违反） | 本机有 key；证据 `docs/evidence/v0.6-py/4-live.txt`，trace 入库 `evals/live-trace/2026-09-16-04-17-py*/`。少量 smoke，不写可靠率 |
+| `python3 evals/judge.py evals/live-trace` | **56 文件 / 72 轮 / 324 条转移，72 passed，0 failed，0 unknown** | 同一判分器同时判 TS 版（`main` 跑出）与 Python 版跑出的 trace；证据 `docs/evidence/v0.6-py/6-judge.txt` |
+| `make demo` | 真实输出 `docs/evidence/demo/2026-09-16-py-deepseek-flash.txt` | demo，不是测试；只证明 CLI / 复盘 CLI 在真实模型上跑得通 |
 
 ### 条数（唯一事实源）
 
 | 文件 | 层 | 条数 |
 |---|---|---|
-| `test/unit/machine.test.ts` | 纯函数 | 10 |
-| `test/unit/contracts.test.ts` | 纯函数 | 12 |
-| `test/unit/generator.test.ts` | 纯函数 6 + 假模型 10 | 16 |
-| `test/unit/journeys.test.ts` | 纯函数 3 + 假模型 5 | 8 |
-| `test/unit/explore.test.ts` | 纯函数 | 7 |
-| `test/unit/parser.test.ts` | 纯函数 | 16 |
-| `test/unit/tools.test.ts` | 纯函数 | 18 |
-| `test/unit/docs.test.ts` | 纯函数 | 8 |
-| `test/unit/live-evidence.test.ts` | 只读真实证据 | 3 |
-| `test/unit/llm-errors.test.ts` | 纯函数 | 21 |
-| `test/unit/llm-retry.test.ts` | 假模型 | 6 |
-| `test/unit/judge-py.test.ts` | 子进程真跑（Python 判分器） | 4 |
-| `test/unit/native-tools.test.ts` | 假模型 + 本地 HTTP 端点 | 8 |
-| `test/unit/unknown-transition-default.test.ts` | 假模型 | 1 |
-| `test/unit/agent-loop.test.ts` | 假模型 | 11 |
-| `test/unit/session-context.test.ts` | 假模型 | 14 |
-| `test/unit/invariants.test.ts` | 假模型（含真落盘） | 12 |
-| `test/unit/transcript.test.ts` | 假模型（含真落盘） | 4 |
-| 合计 | 27 文件 | 250 |
-| `test/unit/review-present.test.ts` | 纯函数 | 8 |
-| `test/unit/review-window.test.ts` | 纯函数 | 8 |
-| `test/unit/review-collect.test.ts` | 纯函数（夹具 TranscriptReader） | 8 |
-| `test/unit/memory-entries.test.ts` | 假模型 + 纯函数 + 真落盘 | 6 |
-| `test/unit/review-consolidate.test.ts` | 假模型（FakeLLM）+ 纯函数 | 9 |
-| `test/unit/review-run.test.ts` | 夹具整合器 + 假模型 + 真落盘 | 11 |
-| `test/unit/review-cli.test.ts` | 子进程真跑 + 假模型 + 真落盘 | 11 |
-| `test/unit/review-machine.test.ts` | 夹具整合器 + 残缺表 + 真落盘 | 2 |
-| `test/unit/review-invariants.test.ts` | 夹具整合器 + 真落盘 | 8 |
+| `tests/unit/test_machine.py` | 纯函数 | 10 |
+| `tests/unit/test_contracts.py` | 纯函数 | 12 |
+| `tests/unit/test_generator.py` | 纯函数 6 + 假模型 10 | 16 |
+| `tests/unit/test_journeys.py` | 纯函数 3 + 假模型 5 | 8 |
+| `tests/unit/test_explore.py` | 纯函数 | 7 |
+| `tests/unit/test_parser.py` | 纯函数 | 16 |
+| `tests/unit/test_tools.py` | 纯函数 | 18 |
+| `tests/unit/test_docs.py` | 纯函数 | 8 |
+| `tests/unit/test_live_evidence.py` | 只读真实证据 | 3 |
+| `tests/unit/test_llm_errors.py` | 纯函数 | 23 |
+| `tests/unit/test_llm_retry.py` | 假模型 | 6 |
+| `tests/unit/test_judge_py.py` | 子进程真跑（Python 判分器） | 4 |
+| `tests/unit/test_native_tools.py` | 假模型 + 本地 HTTP 端点 | 8 |
+| `tests/unit/test_unknown_transition_default.py` | 假模型 | 1 |
+| `tests/unit/test_agent_loop.py` | 假模型 | 11 |
+| `tests/unit/test_session_context.py` | 假模型 | 14 |
+| `tests/unit/test_invariants.py` | 假模型（含真落盘） | 12 |
+| `tests/unit/test_transcript.py` | 假模型（含真落盘） | 4 |
+| `tests/unit/test_review_present.py` | 纯函数 | 8 |
+| `tests/unit/test_review_window.py` | 纯函数 | 8 |
+| `tests/unit/test_review_collect.py` | 纯函数（夹具 TranscriptReader） | 8 |
+| `tests/unit/test_memory_entries.py` | 假模型 + 纯函数 + 真落盘 | 6 |
+| `tests/unit/test_review_consolidate.py` | 假模型（FakeLLM）+ 纯函数 | 9 |
+| `tests/unit/test_review_run.py` | 夹具整合器 + 假模型 + 真落盘 | 11 |
+| `tests/unit/test_review_cli.py` | 子进程真跑 + 假模型 + 真落盘 | 11 |
+| `tests/unit/test_review_machine.py` | 夹具整合器 + 残缺表 + 真落盘 | 2 |
+| `tests/unit/test_review_invariants.py` | 夹具整合器 + 真落盘 | 8 |
+| 合计 | 27 文件 | 252 |
 
 ## 1. 第一层：纯函数通过（不碰模型、不碰 runtime）
 
@@ -50,15 +54,15 @@
 
 | 文件 | 覆盖 |
 |---|---|
-| `test/unit/machine.test.ts` | 未列组合 unknown；显式 kind:'unknown' 行；同格 guard 顺序取首条、守卫全不命中 unknown；rejected 行 verdict=blocked 带 reject_code、noop 不改状态；定义期校验（终态出边 / 未知守卫 / 无守卫行挡后行 / 非 allowed 改状态 / covered_by 格式 / enforced 无 evidence / rejected 无 reject_code / 行 id 缺失与重复 / planned 无 note）；enumerate 全表；reachable 与不可达点名；toContract 逐字确定（id + signature）|
-| `test/unit/contracts.test.ts` | 盘上 4 份 JSON == toContract()（v0.5 起含 review 表）；turn 8 行全 P0 且 covered_by 在盘上；enforced 不变量（v0.3 起 5 条）evidence 在盘上；reachable 无不可达；30 格列 6 格其余 24 格 unlisted；session-runtime 的 busy 行为 declared_unknown 可见 |
-| `test/unit/generator.test.ts`（前 6 条） | gaps 为空；maxSteps=2 生成 10 条路径覆盖 3 个终态；生成路径走过的行 == 全表行；生成集合 ⊆ 手写 covered_by；答案卷是行 id 序列；改 reason 不引起答案卷漂移 |
-| `test/unit/journeys.test.ts`（前 3 条） | journeys.json 每条 id 存在、从 initial 出发、首尾相接、落终态；validateJourney 点名坏 id / 断链；生成器 10 条路径与 journeys 集合相等 |
-| `test/unit/explore.test.ts` | 同 seed 同结果；guard 洞点名 + ddmin 缩到 1 步；ddmin 单测；turn / session / session-runtime / review 四张表 300 走零违反、每行都被碰到 |
-| `test/unit/parser.test.ts` | 协议正例、裸文本、多调用、坏 JSON、缺 name、call+final 冲突、`<invoke>` 别名、裸 JSON、`<tool_code>` 外包、`<function=…>` 标签变体（#4）、闭合标签写成开标签、`<final>` 重复开标签 / 无闭合（2026-09-15 CLI 实测第五、六种偏差） |
-| `test/unit/tools.test.ts` | 全部走 `registry.invoke`：specs 形状、未注册、缺必填、类型错、未知参数、枚举外、默认截断、自定义 compact、重名、handler 抛错；四个工具的可见行为；mock 搜索中文二元组命中（#3） |
-| `test/unit/docs.test.ts` | AGENTS.md 七章节按序、铁律 ≤10；引用的文件与命令存在；测试文件全列出；ARCHITECTURE 机器清单 == contracts/*.machine.ts 且证明文件在盘上；gate.sh 四步顺序；TEST_REPORT 三层分开、§13 八条齐；**§0 条数表 == 源码静态计数，AGENTS / README 不写总数**（v0.3） |
-| `test/unit/live-evidence.test.ts` | 只读文件：仓库里已提交的 `evals/live-trace/**/*.jsonl` 都是 #6 之后的形状（带 `feature` 与 `transition` 行 id）；逐轮过 ① ② ③ ⑤ + unknown 点名、每轮落终态、有 noop 无 unknown；篡改一条记录证明检查会红（点名到文件、trace_id、不变量 id） |
+| `tests/unit/test_machine.py` | 未列组合 unknown；显式 kind:'unknown' 行；同格 guard 顺序取首条、守卫全不命中 unknown；rejected 行 verdict=blocked 带 reject_code、noop 不改状态；定义期校验（终态出边 / 未知守卫 / 无守卫行挡后行 / 非 allowed 改状态 / covered_by 格式 / enforced 无 evidence / rejected 无 reject_code / 行 id 缺失与重复 / planned 无 note）；enumerate 全表；reachable 与不可达点名；toContract 逐字确定（id + signature）|
+| `tests/unit/test_contracts.py` | 盘上 4 份 JSON == toContract()（v0.5 起含 review 表）；turn 8 行全 P0 且 covered_by 在盘上；enforced 不变量（v0.3 起 5 条）evidence 在盘上；reachable 无不可达；30 格列 6 格其余 24 格 unlisted；session-runtime 的 busy 行为 declared_unknown 可见 |
+| `tests/unit/test_generator.py`（前 6 条） | gaps 为空；maxSteps=2 生成 10 条路径覆盖 3 个终态；生成路径走过的行 == 全表行；生成集合 ⊆ 手写 covered_by；答案卷是行 id 序列；改 reason 不引起答案卷漂移 |
+| `tests/unit/test_journeys.py`（前 3 条） | journeys.json 每条 id 存在、从 initial 出发、首尾相接、落终态；validateJourney 点名坏 id / 断链；生成器 10 条路径与 journeys 集合相等 |
+| `tests/unit/test_explore.py` | 同 seed 同结果；guard 洞点名 + ddmin 缩到 1 步；ddmin 单测；turn / session / session-runtime / review 四张表 300 走零违反、每行都被碰到 |
+| `tests/unit/test_parser.py` | 协议正例、裸文本、多调用、坏 JSON、缺 name、call+final 冲突、`<invoke>` 别名、裸 JSON、`<tool_code>` 外包、`<function=…>` 标签变体（#4）、闭合标签写成开标签、`<final>` 重复开标签 / 无闭合（2026-09-15 CLI 实测第五、六种偏差） |
+| `tests/unit/test_tools.py` | 全部走 `registry.invoke`：specs 形状、未注册、缺必填、类型错、未知参数、枚举外、默认截断、自定义 compact、重名、handler 抛错；四个工具的可见行为；mock 搜索中文二元组命中（#3） |
+| `tests/unit/test_docs.py` | AGENTS.md 七章节按序、铁律 ≤10；引用的文件与命令存在；测试文件全列出；ARCHITECTURE 机器清单 == contracts/*_machine.py 且证明文件在盘上；gate.sh 四步顺序；TEST_REPORT 三层分开、§13 八条齐；**§0 条数表 == 源码静态计数，AGENTS / README 不写总数**（v0.3） |
+| `tests/unit/test_live_evidence.py` | 只读文件：仓库里已提交的 `evals/live-trace/**/*.jsonl` 都是 #6 之后的形状（带 `feature` 与 `transition` 行 id）；逐轮过 ① ② ③ ⑤ + unknown 点名、每轮落终态、有 noop 无 unknown；篡改一条记录证明检查会红（点名到文件、trace_id、不变量 id） |
 
 ## 2. 第二层：假模型通过（FakeLLM 脚本驱动 `agent.run`，断用户可见契约）
 
@@ -66,15 +70,15 @@
 
 | 文件 | 覆盖 |
 |---|---|
-| `test/unit/agent-loop.test.ts` | 直接回复、单/多工具、max_steps、坏 JSON 回喂、**坏 JSON 那步是 blocked（reject_code=PARSE_ERROR，trace 数出 1 次，回喂在 onBlocked）**、工具失败回喂、LLM 异常、解析失败到上限、**残缺表验证闸**（unknown → 不执行副作用 + 记 trace + error 终态；测试模式抛出） |
-| `test/unit/session-context.test.ts` | 两窗口隔离、纯对话追问、带工具追问、think 剥离、压缩（模型摘要 / 规则兜底，compact 作为副作用挂在轮首转移）、memory 跨会话与跨用户、**remember 的 value 不进 trace（redact）**、**trace 转移序列 == 行 id 答案卷**、**每个 llm / tool effect 有唯一 request_id** |
-| `test/unit/generator.test.ts`（后 10 条） | 10 条生成路径逐条真跑，trace 序列 == 答案卷（含 `[noop]` / `[blocked]`），终态 ↔ stoppedBy 对应，无 unknown；**每条路径的证据过五条 P0 不变量**（v0.3） |
-| `test/unit/journeys.test.ts`（后 5 条） | checkJourney 三态：passed（带 trace_id）/ failed（closest 实际序列）/ not_observed（空 rows、别的 trace_id、别的 feature）；alternatives 命中；unknownRows 点名残缺表下的 unknown 记录 |
-| `test/unit/invariants.test.ts` | 五条 P0 不变量各一红一绿（见 §4；⑤ 另有反向红：删表上声明 → 真实记录不合账）；④ 用 FileSessionStore + FileTraceSink 真落盘并断 checkTurnInvariants 跑的是五条；文件持久化“tmpdir 存 → 新实例读 → 接着聊”，remember 落盘可读，list 只见本用户 |
+| `tests/unit/test_agent_loop.py` | 直接回复、单/多工具、max_steps、坏 JSON 回喂、**坏 JSON 那步是 blocked（reject_code=PARSE_ERROR，trace 数出 1 次，回喂在 onBlocked）**、工具失败回喂、LLM 异常、解析失败到上限、**残缺表验证闸**（unknown → 不执行副作用 + 记 trace + error 终态；测试模式抛出） |
+| `tests/unit/test_session_context.py` | 两窗口隔离、纯对话追问、带工具追问、think 剥离、压缩（模型摘要 / 规则兜底，compact 作为副作用挂在轮首转移）、memory 跨会话与跨用户、**remember 的 value 不进 trace（redact）**、**trace 转移序列 == 行 id 答案卷**、**每个 llm / tool effect 有唯一 request_id** |
+| `tests/unit/test_generator.py`（后 10 条） | 10 条生成路径逐条真跑，trace 序列 == 答案卷（含 `[noop]` / `[blocked]`），终态 ↔ stoppedBy 对应，无 unknown；**每条路径的证据过五条 P0 不变量**（v0.3） |
+| `tests/unit/test_journeys.py`（后 5 条） | checkJourney 三态：passed（带 trace_id）/ failed（closest 实际序列）/ not_observed（空 rows、别的 trace_id、别的 feature）；alternatives 命中；unknownRows 点名残缺表下的 unknown 记录 |
+| `tests/unit/test_invariants.py` | 五条 P0 不变量各一红一绿（见 §4；⑤ 另有反向红：删表上声明 → 真实记录不合账）；④ 用 FileSessionStore + FileTraceSink 真落盘并断 checkTurnInvariants 跑的是五条；文件持久化“tmpdir 存 → 新实例读 → 接着聊”，remember 落盘可读，list 只见本用户 |
 
 ## 3. 第三层：真实模型少量 smoke（D9：写“少量 smoke”，不写可靠率）
 
-`test/live/live.test.ts` 5 个场景（计算、搜索 + 追问、待办跨轮 + 跨窗口、remember 跨会话、原生 function calling）+ 一条收尾：afterAll 对当次产出的 trace 跑“只凭 trace 就能判”的不变量（v0.3 起）。
+`tests/live/test_live.py` 5 个场景（计算、搜索 + 追问、待办跨轮 + 跨窗口、remember 跨会话、原生 function calling）+ 一条收尾：afterAll 对当次产出的 trace 跑“只凭 trace 就能判”的不变量（v0.3 起）。
 
 历次实跑（qwen3-max，DashScope，2026-09-15 UTC）：
 
@@ -85,7 +89,7 @@
 | 06:14（#6 修 #3 #4 后，commit 83d078a） | **5/5** | `evals/live-trace/2026-09-15-06-14*` | 在库；离线过不变量 |
 | 2026-09-15-06-27（v0.3 门禁，本次） | **5/5** | `evals/live-trace/2026-09-15-06-27*` | 在库；afterAll 与离线检查都过（`docs/evidence/v0.3/4-live.txt`） |
 
-- **oracle 触到真实证据（v0.3）**：在库的 live 记录由 `test/unit/live-evidence.test.ts` 离线逐轮过 ① ② ③ ⑤ 与 unknown 点名：21 文件 / 27 轮 / 126 条转移，75 allowed + 51 noop，0 blocked，0 unknown，27 轮全落 done。④ 需要返回值与盘上历史，只凭 trace 判不了，不在离线检查内。`test/live/live.test.ts` 的 afterAll 对每次 live 产出跑同一检查。
+- **oracle 触到真实证据（v0.3）**：在库的 live 记录由 `tests/unit/test_live_evidence.py` 离线逐轮过 ① ② ③ ⑤ 与 unknown 点名：21 文件 / 27 轮 / 126 条转移，75 allowed + 51 noop，0 blocked，0 unknown，27 轮全落 done。④ 需要返回值与盘上历史，只凭 trace 判不了，不在离线检查内。`tests/live/test_live.py` 的 afterAll 对每次 live 产出跑同一检查。
 - 05:24 那次的两条失败，都不是当时改动引入的（main 同时段基线 5/5），已在 #6（`83d078a`）修复：
   - “搜索 + 追问”：模型搜的是“上海今天天气”（无空格），mock search 按整串子串匹配，语料标题是“上海今日天气”→ 没找到 → 模型答“无法获取”。mock 搜索的分词缺陷（issue #3，已修：中文二元组）。
   - “原生 function calling”：模型没走 `tool_calls`，直接输出 `<function=calculator><parameter=expression>99*99</parameter></function>`——第四种标签变体，解析器不认、当成 final。解析器别名缺口（issue #4，已修）。
@@ -95,7 +99,7 @@
 
 ### 换模型 smoke（2026-09-15，DeepSeek `deepseek-flash`，官方端点）
 
-只改 `.env` 三行（`OPENAI_BASE_URL=https://api.deepseek.com`、`MODEL=deepseek-flash`），runtime 与 prompt 一字未动：`npm run test:live` **5/5 + afterAll 证据检查 0 违反**，单次模型调用约 1.0–1.5s（qwen3-max 约 1–3s）。CLI 三句（计算 / 记两条待办 / 标完成）全部按表走，一步两个工具调用正常。转移记录见 `evals/live-trace/` 最新两个目录。仍是少量 smoke，不写可靠率；也没有观察到 qwen3-max 那六种标签偏差是否在 deepseek 上出现——样本太小，不下结论。
+只改 `.env` 三行（`OPENAI_BASE_URL=https://api.deepseek.com`、`MODEL=deepseek-flash`），runtime 与 prompt 一字未动：`make test-live` **5/5 + afterAll 证据检查 0 违反**，单次模型调用约 1.0–1.5s（qwen3-max 约 1–3s）。CLI 三句（计算 / 记两条待办 / 标完成）全部按表走，一步两个工具调用正常。转移记录见 `evals/live-trace/` 最新两个目录。仍是少量 smoke，不写可靠率；也没有观察到 qwen3-max 那六种标签偏差是否在 deepseek 上出现——样本太小，不下结论。
 
 ## 9. v0.4（#10–#13 并行四票 + #14 收尾）—— 门禁数字与证据
 
@@ -131,7 +135,7 @@ not_run：无。skipped：无。未做：混合历史（先文本后原生）无
 | 真实模型（复盘） | R4 一次：3 stated + 1 due_today、无 warning；R8 一次：两轮 chat → 次日 review `ok`，entries 3，1 条 due_today，重跑 attempts=2 不调模型（`docs/evidence/t19-r8/live-smoke.txt`） | 少量 smoke，不写可靠率 |
 | Python 判分 | 49 文件 / 63 轮 / 285 条转移，63 passed，0 failed，0 unknown（只看 turn） | 已验证（进程内） |
 
-复盘线四条 P0 不变量（`test/unit/review-invariants.test.ts`）各一红一绿：幂等、冲突不覆盖、每条亮点有来源、不复述原话。变异：R2 两条、R4 一条、R5 一条、R6 一条、R8 一条——各红一次已还原。review 表随机探索 300 走 2491 步零违反。
+复盘线四条 P0 不变量（`tests/unit/test_review_invariants.py`）各一红一绿：幂等、冲突不覆盖、每条亮点有来源、不复述原话。变异：R2 两条、R4 一条、R5 一条、R6 一条、R8 一条——各红一次已还原。review 表随机探索 300 走 2491 步零违反。
 
 not_run：无。skipped：无。未做：见 `docs/NEXT_STEPS.md`“复盘线”。
 
@@ -145,7 +149,7 @@ not_run：无。skipped：无。未做：见 `docs/NEXT_STEPS.md`“复盘线”
 | ④ | 答案 == 盘上历史末条 == trace 末次决策 | `answerAligned` | 文件存储真落盘：返回值、`data/sessions/A/w1.json` 末条、`trace/w1.jsonl` 末条 answer 三处一致 | 改盘上 JSON 末条 / 改 JSONL 末条 answer → 各自点名 |
 | ⑤ | 副作用对账：每条记录的 `effects[].kind` ⊆ 记录 `transition` 行 id 命中行声明的 `effects`；compact 只在轮首第一条转移 | `effectsDeclared` | 轮首压缩 + 坏 JSON + 工具 + final 的一轮逐条对账通过，compact / llm / parse / tool / answer 五种都出现；对 noop（t-llm-ok）/ blocked（t-parse-error）记录同样成立；生成器 10 条路径与在库 live 转移也过 | 把 tool 挪到 t-llm-ok 上 / compact 挪到非轮首 / 幽灵行 id → 各自点名；**反向**：记录不动、删表里 TOOLS_DONE 行的声明 → 真实记录立刻不合账 |
 
-oracle 实现在 `src/machine/invariants.ts`，只看 trace 记录、返回值、盘上历史，不碰 runtime 内部。只凭 trace 能判的 ① ② ③ ⑤ + unknown 点名打包为 `checkTraceOnlyInvariants`，由 `src/machine/evidence.ts` 接到 JSONL 文件上。
+oracle 实现在 `mini_agent/machine/invariants.py`，只看 trace 记录、返回值、盘上历史，不碰 runtime 内部。只凭 trace 能判的 ① ② ③ ⑤ + unknown 点名打包为 `checkTraceOnlyInvariants`，由 `mini_agent/machine/evidence.py` 接到 JSONL 文件上。
 
 ## 5. 对标标准 §13 八条
 
@@ -165,7 +169,7 @@ oracle 实现在 `src/machine/invariants.ts`，只看 trace 记录、返回值�
 - ② session 表与 ③ session-runtime 表只建表 + 契约，**没有接代码**；`compacting + INPUT`、`busy + INPUT/ASYNC_DONE` 标 unknown。
 - LLM 重试在 `callLLM` 内部，trace 上只见 `attempts` 数，不是逐次转移。
 - 真实模型只有少量 smoke（§3 逐批列出），不写可靠率。
-- 不变量 oracle 目前跑在三处：单测、生成器路径、live 证据（离线 + live 收尾）；**CLI 运行时不跑**，用户交互产生的 `trace/*.jsonl` 需要手动用 `src/machine/evidence.ts` 过一遍。④ 只在单测里跑（需要返回值与盘上历史）。
+- 不变量 oracle 目前跑在三处：单测、生成器路径、live 证据（离线 + live 收尾）；**CLI 运行时不跑**，用户交互产生的 `trace/*.jsonl` 需要手动用 `mini_agent/machine/evidence.py` 过一遍。④ 只在单测里跑（需要返回值与盘上历史）。
 - 既有测试中有 3 处 trace 断言因 D4（打点单位改为转移）而改写：两处 compact 改为看副作用，一处 trace 序列改为对答案卷；其余 33 条断言未动。
 
 ## 7. v0.2（issue #5：对齐 skill）—— 本轮门禁数字与证据
@@ -174,7 +178,7 @@ oracle 实现在 `src/machine/invariants.ts`，只看 trace 记录、返回值�
 
 | 步骤 | 文件 | 结果 | 口径 |
 |---|---|---|---|
-| typecheck | `1-typecheck.txt` | `tsc --noEmit` exit 0 | 已验证（进程内） |
+| typecheck | `1-typecheck.txt` | `python -m compileall` exit 0 | 已验证（进程内） |
 | 单测 | `2-unit.txt` | **11 文件 113 条全绿**（机器 10 · 契约 9 · 工具 16 · 旅程 8 · 会话/上下文 11 · 循环 11 · 生成器 16 · 不变量 9 · 探索 6 · 解析 10 · 文档 7） | 已验证（进程内） |
 | 契约漂移 | `3-contracts.txt` | 3 份契约 0 漂移 | 已验证（进程内） |
 | 真实模型 | `4-live.txt` | **5/5**（qwen3-max，DashScope，18.4s）；trace 在 `evals/live-trace/2026-09-15-05-59*`：42 条转移，25 allowed + 17 noop，0 blocked，0 unknown；26 个 llm/tool effect 各带唯一 `request_id`；remember 的 args 只见 `value_len`；无 key 字符串 | 真实模型少量 smoke（1 × 5，不写可靠率）。issue #3（mock 搜索分词）/ #4（`<function=…>` 标签变体）本次没触发，**没修**，仍是已知问题 |
@@ -191,8 +195,8 @@ not_run：无。skipped：无（本机有 key，live 真跑了一次）。
 | A3 blocked | machine.test“rejected 行的 verdict 是 blocked”；agent-loop.test“A3：坏 JSON 那一步是 blocked” | `expected { status: 'rejected', … } to match object { status: 'blocked', … }`；`expected [ 't-llm-ok', 't-parse-error', …(2) ] to deeply equal [ 't-llm-ok [noop]', …(3) ]` |
 | A4 planned note | machine.test“A4：planned 不变量必须带 note” | `expected [Function] to throw an error` |
 | A5 redact | session-context.test“A5：remember 的 value 不进 trace” | `expected '{"key":"city","value":"上海徐汇区"}' not to contain '上海徐汇区'` |
-| B1 答案卷 | journeys.test 整文件 8 条 | `Cannot find module '../../src/machine/check.js'` |
-| B2 探索 | explore.test 整文件 6 条 | `Cannot find module '../../src/machine/explore.js'` |
+| B1 答案卷 | journeys.test 整文件 8 条 | `Cannot find module '../../mini_agent/machine/check.js'` |
+| B2 探索 | explore.test 整文件 6 条 | `Cannot find module '../../mini_agent/machine/explore.js'` |
 | C1 文档 | docs.test 4 条 | `expected [ '一句话', '命令', … ] to deeply equal [ '产品是什么', '铁律', … ]`；`ENOENT … docs/ARCHITECTURE.md` |
 
 ### A3 之后的 blocked 计数
@@ -206,14 +210,14 @@ not_run：无。skipped：无（本机有 key，live 真跑了一次）。
 
 ### B3 变异（一次性，已还原）：`docs/evidence/v0.2/5-mutation-B3.txt`
 
-把 `contracts/session-runtime.machine.ts` 行 `sr-input-while-busy` 的 `kind:'unknown'` 谎报成 `'allowed'`：
+把 `contracts/session_runtime_machine.py` 行 `sr-input-while-busy` 的 `kind:'unknown'` 谎报成 `'allowed'`：
 
 ```
 contracts:check  ✗ contracts/session-runtime.contract.json 与表不一致  exit 1
 contracts.test   × 盘上 'contracts/session-runtime.contract.js…' == toContract()
                  × session-runtime：busy 时的 INPUT / ASYNC_DONE 在契约里标为 declared_unknown
                  → expected [ 'busy --ASYNC_DONE--> busy', …(1) ] to deeply equal ArrayContaining{…}
-npm test         2 failed | 108 passed
+make test         2 failed | 108 passed
 ```
 
 红在契约层；**探索层没红**（allowed 自环不违反四条通用不变量）——探索器的已知边界，见 NEXT_STEPS 8。
@@ -237,37 +241,37 @@ npm test         2 failed | 108 passed
 
 | 步骤 | 文件 | 结果 | 口径 |
 |---|---|---|---|
-| typecheck | `1-typecheck.txt` | `tsc --noEmit` exit 0 | 已验证（进程内） |
+| typecheck | `1-typecheck.txt` | `python -m compileall` exit 0 | 已验证（进程内） |
 | 单测 | `2-unit.txt` | **12 文件 125 条全绿**（与 §0 表一致） | 已验证（进程内） |
 | 契约漂移 | `3-contracts.txt` | 3 份契约 0 漂移 | 已验证（进程内） |
 | 真实模型 | `4-live.txt` | **5/5**（qwen3-max，DashScope，18.4s）；afterAll 真跑，stderr 一行 `live trace 不变量：7 个文件，9 轮，42 条转移，status 分布 {"noop":17,"allowed":25}`，0 违反；trace 在 `evals/live-trace/2026-09-15-06-27*`（入库） | 真实模型少量 smoke（1 × 5，不写可靠率） |
 
-not_run：无。skipped：无（本机有 key，live 真跑了一次；vitest 报 6 passed = 5 场景 + afterAll 所在 describe 的 1 条“trace 文件存在”）。
+not_run：无。skipped：无（本机有 key，live 真跑了一次；pytest 报 6 passed = 5 场景 + afterAll 所在 describe 的 1 条“trace 文件存在”）。
 
 ### 三片逐条：红过什么（先写测试跑一次，贴那次失败；不另做回退验红）
 
 | 片 | 提交 | 红测（测试名） | 红的输出（摘） |
 |---|---|---|---|
 | ⑤ effectsDeclared | `feat(invariants)` | invariants.test“⑤ 副作用对账”三条；invariants.test ④ 绿（断 checkTurnInvariants 跑五条）；generator.test 10 条路径 | `TypeError: (0 , effectsDeclared) is not a function`；`expected [ 'no_tool_after_parse_error', …(3) ] to deeply equal [ …(4) ]`；`expected [ 'no_tool_after_parse_error', …(3) ] to include 'effects_declared'` |
-| trace 证据离线 oracle | `feat(evidence)` | live-evidence.test 整文件；实现后、删旧格式前“每一轮都过 ① ② ③ ⑤” | `Error: Cannot find module '../../src/machine/evidence.js'`；`28 个文件，35 轮，163 条转移 … ✗ evals/live-trace/2026-09-15-05-24/calc.jsonl live/calc/1 [effects_declared] #1 行 id "undefined" 在表里不存在（deciding --LLM_OK--> deciding [allowed]）`（05-24 / 05-25 共 14 文件同样点名 → 旧格式，`git rm`） |
+| trace 证据离线 oracle | `feat(evidence)` | live-evidence.test 整文件；实现后、删旧格式前“每一轮都过 ① ② ③ ⑤” | `Error: Cannot find module '../../mini_agent/machine/evidence.js'`；`28 个文件，35 轮，163 条转移 … ✗ evals/live-trace/2026-09-15-05-24/calc.jsonl live/calc/1 [effects_declared] #1 行 id "undefined" 在表里不存在（deciding --LLM_OK--> deciding [allowed]）`（05-24 / 05-25 共 14 文件同样点名 → 旧格式，`git rm`） |
 | 条数单一事实源 | `docs` | docs.test“条数单一事实源” | `contracts.test.ts 的 it.each 行缺 \`// ×N\` 展开标记`；加标记后 `expected {} to deeply equal { 'agent-loop.test.ts': 11, …(11) }`（报告里没有那张表） |
 
 ### 第 ⑤ 条不变量落在哪
 
-- 表：`contracts/turn.machine.ts` 加 `effects_declared`（P0，enforced，evidence 指向 `invariants.ts::effectsDeclared` 与测试）；表头注释写清每种副作用挂在哪类行上，`compact` 只挂轮首第一条转移（t-llm-ok / t-llm-failed 声明了它）。契约 JSON 重生成，`contracts:check` 0 漂移。
+- 表：`contracts/turn_machine.py` 加 `effects_declared`（P0，enforced，evidence 指向 `invariants.ts::effectsDeclared` 与测试）；表头注释写清每种副作用挂在哪类行上，`compact` 只挂轮首第一条转移（t-llm-ok / t-llm-failed 声明了它）。契约 JSON 重生成，`contracts:check` 0 漂移。
 - oracle：`effectsDeclared(records, machine)`——行 id 不存在点名、未声明种类点名、compact 不在 seq 1 点名；`checkTurnInvariants` 跑五条。
 - 谁在跑：invariants.test（一绿一红一反向红）、generator.test 10 条路径、live-evidence.test 在库 live 转移、live.test afterAll 当次产出。
 
 ### 离线证据检查
 
-- 检查器：`src/machine/evidence.ts`（读 JSONL → 按 `trace_id` 分轮 → `checkTraceOnlyInvariants` ① ② ③ ⑤ + unknown 点名 → 摘要）。
+- 检查器：`mini_agent/machine/evidence.py`（读 JSONL → 按 `trace_id` 分轮 → `checkTraceOnlyInvariants` ① ② ③ ⑤ + unknown 点名 → 摘要）。
 - 在库 live 记录：21 文件 / 27 轮 / 126 条转移，75 allowed + 51 noop，0 blocked，0 unknown，27 轮全落 done；全部落 `done`。
 - 删除：`evals/live-trace/2026-09-15-05-24*`、`05-25*`（#6 之前的旧格式，见 §3 表）。
 - afterAll：本次 live 收尾对 `evals/live-trace/2026-09-15-06-27*` 跑同一检查：真跑了，`live trace 不变量：7 个文件，9 轮，42 条转移，status 分布 {"noop":17,"allowed":25}`，0 违反。
 
 ### 条数单一事实源
 
-- 条数只写在 §0“条数（唯一事实源）”那张表；`docs.test.ts` 用源码静态计数对账：`it(` 记 1，`it.each(` 行必须带 `// ×N`（contracts ×3、generator ×10、explore ×3），逐文件相等、合计行与 `npm test` 行的文件数 / 总数相等，每个文件只许出现一次。
+- 条数只写在 §0“条数（唯一事实源）”那张表；`docs.test.ts` 用源码静态计数对账：`it(` 记 1，`it.each(` 行必须带 `// ×N`（contracts ×3、generator ×10、explore ×3），逐文件相等、合计行与 `make test` 行的文件数 / 总数相等，每个文件只许出现一次。
 - AGENTS.md / README 不写总数（测试断 `\d+ 条(单测|全绿)|\d+ 文件 \d+ 条` 不出现）；AI-LOG §3、SPEC-state-machines §9 里过期的“live 未跑 / 旧格式”改为引用本报告 §3。
 
 ### 既有断言改动清单（只在 issue 明说处）

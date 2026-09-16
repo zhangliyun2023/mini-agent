@@ -4,3 +4,8 @@ dist/
 data/
 trace/
 .env.*.bak
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.egg-info/

@@ -217,3 +217,15 @@ Q2 直接改了 R1 切片的定义（从「消息加时间戳」改成「轮末�
 ### 13.3 没有留下原文的
 
 模块一的第一稿、模块四让 AI 起草的那条提示、三四五按模块二重写的那条提示，都在对话里没有存档；§8、§9、§12 是事后转述，判断归属照那三节。
+
+## 14. Python 版分支 `agent-base-py`：AI 逐模块移植，同一套测试对答案（2026-09-16）
+
+作业要求没有限定语言，但招聘方（Ailoha，Agent Eval & Harness 方向）要 Python。我让 AI 把 `main` 上的 TypeScript 实现整支移植成 Python，单独一个分支，规则只有三条：**不改表、不改契约、不改测试的断言**。
+
+- **不改表**：四张状态表逐行对译成 `contracts/*_machine.py`（dataclass 行 + 同名 guard），`make contracts-gen` 生成的契约 JSON 与 TS 版结构逐字节相同，只有 `covered_by` / `evidence` 指向的测试名换成 pytest 名、`rv-delivered` 一处 reason 的 `deliverTo` 改成 `deliver_to`。这是我要求的验收：表没漂就说明控制流没漂。
+- **不改断言**：27 个测试文件逐条改写成 pytest（`describe/it` → `def test_`，`it.each` → `parametrize` 并保留 `# ×N` 标记给守文档测试对账），断言打的仍是返回值、trace 记录、盘上文件、模型收到的 messages。原生 function calling 那组仍起本地 HTTP 端点收真实 POST body；复盘 CLI 那组仍是子进程真跑。多出两条：`classify_llm_error` 对 `ConnectionResetError` / `socket.timeout` 这两种 Python 原生形状的分类。
+- **两边互读**：dict 键名沿用 JSON 契约的 camelCase，所以 `evals/judge.py`（本来就是 Python）、`evals/live-trace/` 里 TS 版跑出的真实模型 trace、`contracts/*.contract.json` 三样在 Python 版上原样通过（`test_live_evidence` / `test_judge_py`）。
+
+AI 自己拍的、供复核的判断点：同步而不是 async（runtime 没有并发需求，OpenAI SDK 用同步客户端）；`window.py` 用 `zoneinfo` 直接算当地零点（TS 版是 Intl 两次迭代修正），夏令时切换日那条测试照旧过；calculator 用白名单字符 + `ast` 只放行算术节点替代 `new Function`；`Machine.replace()` 替代 TS 测试里的 `{...turnMachine, rows}` 展开；`typecheck` 用 `compileall`（不引第三方类型检查器）。移植过程里 AI 没有跑到过红——因为测试是先搬过来的，实现照着测试写到绿，这一轮的「红」就是首次跑 pytest 时那 244 条里因模块缺失而 import error 的部分，不另做回退验红。
+
+没做：Python 版没有重新画架构图；`docs/TEST_REPORT.md` §1–§10 与 `docs/evidence/t*/`、`v0.*/` 仍是 TS 版当时的证据，只改了路径映射、没冒充 Python 版跑过（§0 与 `docs/evidence/v0.6-py/` 才是 Python 版的实跑）。
