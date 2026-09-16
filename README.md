@@ -34,7 +34,7 @@ review A 2026-09-16 Asia/Shanghai → ok（attempts=1, coverage=full, entries_wr
 delivered_to: w1
 ```
 
-没有 key 也能看：`npm test`（250 条，假模型）、`npm run review -- --user A --fake ok`（复盘三态）、`python3 evals/judge.py evals/live-trace`（对仓库里已提交的真实模型转移记录跑不变量）。
+没有 key 也能看：`npm test`（假模型，条数见 `docs/TEST_REPORT.md` §0）、`npm run review -- --user A --fake ok`（复盘三态）、`python3 evals/judge.py evals/live-trace`（对仓库里已提交的真实模型转移记录跑不变量）。
 
 ## 运行
 
