@@ -2,9 +2,14 @@
 可重试 = rate_limited / server / timeout / network / unknown，不可重试 = auth / bad_request / not_found。"""
 import socket
 
-import httpx
 import pytest
 from openai import APIConnectionError, APITimeoutError, AuthenticationError, RateLimitError
+
+# openai ≥ 3 用 httpx2 构造异常里的 request / response；2.x 用 httpx。取 SDK 实际依赖的那个，两边都能构造真实 SDK 异常
+try:
+    import httpx2 as httpx  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover —— 取决于装的是哪个 SDK 大版本
+    import httpx
 
 from mini_agent.llm.errors import classify_llm_error, is_retryable
 
