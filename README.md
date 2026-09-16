@@ -2,6 +2,8 @@
 
 从零实现的最小可用 Agent Runtime：loop / 工具注册 / 输出解析 / session / context 压缩 / trace。TypeScript，运行时依赖只有 OpenAI SDK（当 HTTP 客户端）。轮循环由状态表驱动，详见 `AGENTS.md`。
 
+> **Python 版**在分支 [`agent-base-py`](https://github.com/zhangliyun2023/mini-agent/tree/agent-base-py)：同一套状态表、契约 JSON、答案卷、不变量与测试用例逐模块移植（pytest 全套、真实模型 smoke 与 judge.py 同样通过），`make install && make demo` 即可跑。
+
 > **只想看最小 loop？** 三个文件够了：`contracts/turn.machine.ts`（循环的状态表，5 状态 × 6 事件）→ `src/runtime/agent.ts`（每步先 `interpret` 再执行副作用）→ `src/protocol/parser.ts`（模型输出怎么变成事件）。其余都是围绕这条 loop 的证明：契约、不变量、生成器、探索、证据。
 
 ## 5 分钟体验（不用自己打字）
